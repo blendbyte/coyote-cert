@@ -40,8 +40,18 @@ function pebbleAvailable(): bool
 
     if ($result === null) {
         $url = getenv('PEBBLE_URL') ?: 'https://localhost:14000/dir';
-        $ctx = stream_context_create(['ssl' => ['verify_peer' => false, 'verify_peer_name' => false]]);
-        $result = @file_get_contents($url, false, $ctx) !== false;
+        $ch  = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_TIMEOUT        => 3,
+            CURLOPT_CONNECTTIMEOUT => 2,
+        ]);
+        curl_exec($ch);
+        $code   = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $result = $code > 0;
     }
 
     return $result;

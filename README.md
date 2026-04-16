@@ -1,5 +1,10 @@
 # coyote-cert
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/blendbyte/coyote-cert.svg?style=flat-square)](https://packagist.org/packages/blendbyte/coyote-cert)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://github.com/blendbyte/coyote-cert/blob/main/LICENSE)
+[![PHP](https://img.shields.io/badge/PHP-8.3%2B-787cb5?style=flat-square)](https://www.php.net)
+[![Tests](https://img.shields.io/github/actions/workflow/status/blendbyte/coyote-cert/tests.yml?branch=main&style=flat-square&label=tests)](https://github.com/blendbyte/coyote-cert/actions/workflows/tests.yml)
+
 ACME v2 PHP library for issuing, renewing, and revoking TLS certificates from Let's Encrypt and any other RFC 8555-compliant CA.
 
 ## Requirements
@@ -329,6 +334,16 @@ $order   = $api->order()->new($account, ['example.com']);
 $window  = $api->renewalInfo()->get($cert->certificate, $issuerPem);
 ```
 
-## License
+---
 
-MIT
+## Maintained by Blendbyte
+
+<a href="https://www.blendbyte.com">
+  <img src="https://avatars.githubusercontent.com/u/69378377?s=200&v=4" alt="Blendbyte" width="80" align="left" style="margin-right: 16px;">
+</a>
+
+This project is maintained by **[Blendbyte](https://www.blendbyte.com)** — a team of engineers with 20+ years of experience building cloud infrastructure, web applications, and developer tools. We use these packages in production ourselves and actively contribute to the open source ecosystem we rely on every day. Issues and PRs are always welcome.
+
+🌐 [blendbyte.com](https://www.blendbyte.com) · 📧 [hello@blendbyte.com](mailto:hello@blendbyte.com)
+
+<br clear="left">

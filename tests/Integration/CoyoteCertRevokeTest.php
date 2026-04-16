@@ -19,7 +19,7 @@ it('revokes a previously issued certificate', function () {
         ->revoke($cert);
 
     expect($result)->toBeTrue();
-})->skip(!getenv('PEBBLE_URL'), 'Set PEBBLE_URL to run Pebble integration tests');
+})->skip(!pebbleAvailable(), 'Pebble not running — skipping integration tests');
 
 it('revokes with a specific reason code', function () {
     $storage = new InMemoryStorage();
@@ -36,7 +36,7 @@ it('revokes with a specific reason code', function () {
         ->revoke($cert, reason: 1); // keyCompromise
 
     expect($result)->toBeTrue();
-})->skip(!getenv('PEBBLE_URL'), 'Set PEBBLE_URL to run Pebble integration tests');
+})->skip(!pebbleAvailable(), 'Pebble not running — skipping integration tests');
 
 it('throws when revoke is called without storage', function () {
     $storage = new InMemoryStorage();
@@ -50,4 +50,4 @@ it('throws when revoke is called without storage', function () {
 
     expect(fn () => CoyoteCert::with(pebble())->revoke($cert))
         ->toThrow(\CoyoteCert\Exceptions\LetsEncryptClientException::class);
-})->skip(!getenv('PEBBLE_URL'), 'Set PEBBLE_URL to run Pebble integration tests');
+})->skip(!pebbleAvailable(), 'Pebble not running — skipping integration tests');

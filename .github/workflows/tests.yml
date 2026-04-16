@@ -8,6 +8,8 @@ jobs:
   test:
     name: PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
+    env:
+      PEBBLE_URL: https://localhost:14000/dir
 
     strategy:
       fail-fast: false
@@ -43,6 +45,4 @@ jobs:
             'until curl -sk https://localhost:14000/dir > /dev/null 2>&1; do sleep 1; done'
 
       - name: Run tests
-        env:
-          PEBBLE_URL: https://localhost:14000/dir
         run: vendor/bin/pest --parallel --coverage --min=80

@@ -1,5 +1,6 @@
 <?php
 
+use CoyoteCert\Provider\Pebble;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)->in('Unit', 'Integration');
@@ -23,4 +24,33 @@ function ecKeyPem(string $curve = 'prime256v1'): string
         'secp521r1'  => "-----BEGIN EC PRIVATE KEY-----\nMIHcAgEBBEIBn7Elzxkr+b9LEKfx/wxC7/g+hqiiI+OsrXp4CGNOgiCy+B6yQFI8\nuUB41kdrTzsd0YFnDhiKkx256WDxap2rEs6gBwYFK4EEACOhgYkDgYYABADV+WWz\neq1sbiBK5IJkT4AcV14E8tw8h2uE7Oz3RHF//MoGQlAeZJZ2a/e5nrzbCxVV8ySz\nNsWw/Ye7ErDbvPZb6gCxUemjdn7hVHrnbqoDgDJXlcSI0QtSHQcb3C9ifjxCqhvl\nhzyCoKJdVpqaJk8ArxBh1sLbDLrXREZyXseGAWjteQ==\n-----END EC PRIVATE KEY-----",
         default      => throw new \InvalidArgumentException("Unknown curve: $curve"),
     };
+}
+
+// ── Pebble integration test helpers ──────────────────────────────────────────
+
+/**
+ * Returns true when a Pebble CA is reachable at PEBBLE_URL (or the default
+ * localhost address). Used as the ->skip() guard for integration tests so they
+ * run automatically in CI (where Pebble starts as a service) and are skipped
+ * gracefully on developer machines without a local Pebble instance.
+ */
+function pebbleAvailable(): bool
+{
+    static $result = null;
+
+    if ($result === null) {
+        $url = getenv('PEBBLE_URL') ?: 'https://localhost:14000/dir';
+        $ctx = stream_context_create(['ssl' => ['verify_peer' => false, 'verify_peer_name' => false]]);
+        $result = @file_get_contents($url, false, $ctx) !== false;
+    }
+
+    return $result;
+}
+
+function pebble(): Pebble
+{
+    return new Pebble(
+        url:       getenv('PEBBLE_URL') ?: 'https://localhost:14000/dir',
+        verifyTls: false,
+    );
 }

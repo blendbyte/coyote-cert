@@ -2,19 +2,11 @@
 
 use CoyoteCert\CoyoteCert;
 use CoyoteCert\Enums\KeyType;
-use CoyoteCert\Provider\Pebble;
 use CoyoteCert\Storage\InMemoryStorage;
 use CoyoteCert\Storage\StoredCertificate;
 use Tests\Integration\Helpers\NoOpHttp01Handler;
 
-$pebbleUrl = getenv('PEBBLE_URL') ?: 'https://localhost:14000/dir';
-
-function pebble(): Pebble
-{
-    return new Pebble(url: getenv('PEBBLE_URL') ?: 'https://localhost:14000/dir', verifyTls: false);
-}
-
-it('issues a certificate with default key types (RSA account, EC_P256 cert)', function () use ($pebbleUrl) {
+it('issues a certificate with default key types (RSA account, EC_P256 cert)', function () {
     $cert = CoyoteCert::with(pebble())
         ->storage(new InMemoryStorage())
         ->domains('test.example.com')
@@ -28,7 +20,7 @@ it('issues a certificate with default key types (RSA account, EC_P256 cert)', fu
     expect($cert->fullchain)->toContain('-----BEGIN CERTIFICATE-----');
     expect($cert->domains)->toBe(['test.example.com']);
     expect(openssl_x509_parse($cert->certificate))->toBeArray();
-})->skip(!getenv('PEBBLE_URL'), 'Set PEBBLE_URL to run Pebble integration tests');
+})->skip(!pebbleAvailable(), 'Pebble not running — skipping integration tests');
 
 it('issues a certificate with an EC P-256 account key', function () {
     $cert = CoyoteCert::with(pebble())
@@ -40,7 +32,7 @@ it('issues a certificate with an EC P-256 account key', function () {
         ->issue();
 
     expect($cert->certificate)->toContain('-----BEGIN CERTIFICATE-----');
-})->skip(!getenv('PEBBLE_URL'), 'Set PEBBLE_URL to run Pebble integration tests');
+})->skip(!pebbleAvailable(), 'Pebble not running — skipping integration tests');
 
 it('reuses an existing account on a second issue', function () {
     $storage = new InMemoryStorage();
@@ -62,7 +54,7 @@ it('reuses an existing account on a second issue', function () {
 
     expect($first->certificate)->not->toBe($second->certificate);
     expect($second->certificate)->toContain('-----BEGIN CERTIFICATE-----');
-})->skip(!getenv('PEBBLE_URL'), 'Set PEBBLE_URL to run Pebble integration tests');
+})->skip(!pebbleAvailable(), 'Pebble not running — skipping integration tests');
 
 it('issueOrRenew returns the cached cert when still valid', function () {
     $storage = new InMemoryStorage();
@@ -79,10 +71,10 @@ it('issueOrRenew returns the cached cert when still valid', function () {
         ->domains('cached.example.com')
         ->challenge(new NoOpHttp01Handler())
         ->skipLocalTest()
-        ->issueOrRenew(daysBeforeExpiry: 1); // very low threshold — cert won't expire this soon
+        ->issueOrRenew(daysBeforeExpiry: 1);
 
     expect($returned->certificate)->toBe($issued->certificate);
-})->skip(!getenv('PEBBLE_URL'), 'Set PEBBLE_URL to run Pebble integration tests');
+})->skip(!pebbleAvailable(), 'Pebble not running — skipping integration tests');
 
 it('issues a certificate with the shortlived profile', function () {
     $cert = CoyoteCert::with(pebble())
@@ -94,4 +86,4 @@ it('issues a certificate with the shortlived profile', function () {
         ->issue();
 
     expect($cert->certificate)->toContain('-----BEGIN CERTIFICATE-----');
-})->skip(!getenv('PEBBLE_URL'), 'Set PEBBLE_URL to run Pebble integration tests');
+})->skip(!pebbleAvailable(), 'Pebble not running — skipping integration tests');

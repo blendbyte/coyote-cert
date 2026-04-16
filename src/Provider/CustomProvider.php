@@ -17,10 +17,11 @@ class CustomProvider implements AcmeProviderInterface
      */
     public function __construct(
         private readonly string  $directoryUrl,
-        private readonly string  $displayName  = 'Custom CA',
-        private readonly ?string $eabKid        = null,
-        private readonly ?string $eabHmac       = null,
-        private readonly bool    $verifyTls     = true,
+        private readonly string  $displayName      = 'Custom CA',
+        private readonly ?string $eabKid            = null,
+        private readonly ?string $eabHmac           = null,
+        private readonly bool    $verifyTls         = true,
+        private readonly bool    $profilesSupported = false,
     ) {
     }
 
@@ -46,6 +47,11 @@ class CustomProvider implements AcmeProviderInterface
         }
 
         return null;
+    }
+
+    public function supportsProfiles(): bool
+    {
+        return $this->profilesSupported;
     }
 
     public function verifyTls(): bool

@@ -38,6 +38,7 @@ class CoyoteCert
     private ?StorageInterface          $storage          = null;
     private ?LoggerInterface           $logger           = null;
     private string                     $email            = '';
+    private string                     $profile          = '';
     private array                      $domains          = [];
     private ?ChallengeHandlerInterface $challengeHandler = null;
     private KeyType                    $certKeyType      = KeyType::EC_P256;
@@ -58,6 +59,17 @@ class CoyoteCert
     public function email(string $email): self
     {
         $this->email = $email;
+
+        return $this;
+    }
+
+    /**
+     * Request a specific ACME profile (e.g. 'shortlived', 'classic').
+     * Silently ignored for CAs that don't support profiles.
+     */
+    public function profile(string $profile): self
+    {
+        $this->profile = $profile;
 
         return $this;
     }
@@ -170,7 +182,7 @@ class CoyoteCert
             : $api->account()->create($this->email);
 
         // ── 2. Create order ────────────────────────────────────────────────
-        $order = $api->order()->new($account, $this->domains);
+        $order = $api->order()->new($account, $this->domains, $this->profile);
 
         // ── 3. Fetch authorization challenges ──────────────────────────────
         $challenges = $api->domainValidation()->status($order);

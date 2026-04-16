@@ -26,6 +26,11 @@ class LetsEncrypt implements AcmeProviderInterface
         return null;
     }
 
+    public function supportsProfiles(): bool
+    {
+        return true;
+    }
+
     public function verifyTls(): bool
     {
         return true;

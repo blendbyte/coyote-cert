@@ -47,6 +47,11 @@ class ZeroSSL implements AcmeProviderInterface
         return null;
     }
 
+    public function supportsProfiles(): bool
+    {
+        return false;
+    }
+
     public function verifyTls(): bool
     {
         return true;

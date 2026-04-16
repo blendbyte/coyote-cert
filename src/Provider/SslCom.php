@@ -40,6 +40,11 @@ class SslCom implements AcmeProviderInterface
         return new EabCredentials($this->eabKid, $this->eabHmac);
     }
 
+    public function supportsProfiles(): bool
+    {
+        return false;
+    }
+
     public function verifyTls(): bool
     {
         return true;

@@ -31,6 +31,12 @@ interface AcmeProviderInterface
     public function getEabCredentials(string $email): ?EabCredentials;
 
     /**
+     * Whether this CA supports ACME Profiles (e.g. Let's Encrypt's shortlived, classic, tlsserver).
+     * When false, the profile field is omitted from new-order requests.
+     */
+    public function supportsProfiles(): bool;
+
+    /**
      * Whether to verify the CA's TLS certificate.
      * Should only be false for local Pebble test instances.
      */

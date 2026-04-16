@@ -1,13 +1,13 @@
 <?php
 
-namespace Rogierw\RwAcme\Endpoints;
+namespace CoyoteCert\Endpoints;
 
-use Rogierw\RwAcme\DTO\AccountData;
-use Rogierw\RwAcme\DTO\OrderData;
-use Rogierw\RwAcme\Exceptions\LetsEncryptClientException;
-use Rogierw\RwAcme\Exceptions\OrderNotFoundException;
-use Rogierw\RwAcme\Exceptions\RateLimitException;
-use Rogierw\RwAcme\Support\Base64;
+use CoyoteCert\DTO\AccountData;
+use CoyoteCert\DTO\OrderData;
+use CoyoteCert\Exceptions\LetsEncryptClientException;
+use CoyoteCert\Exceptions\OrderNotFoundException;
+use CoyoteCert\Exceptions\RateLimitException;
+use CoyoteCert\Support\Base64;
 
 class Order extends Endpoint
 {

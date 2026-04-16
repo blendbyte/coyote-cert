@@ -1,49 +1,42 @@
-# Let’s Encrypt ACME client written in PHP
+# coyote-cert — ACME v2 certificate client for PHP
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/rogierw/rw-acme-client.svg?style=flat-square)](https://packagist.org/packages/rogierw/rw-acme-client)
-[![Scrutinizer Code Quality](https://img.shields.io/scrutinizer/g/RogierW/rw-acme-client.svg?style=flat-square)](https://scrutinizer-ci.com/g/RogierW/rw-acme-client/?branch=master)
-[![StyleCI](https://github.styleci.io/repos/224902862/shield?style=flat-square&branch=master)](https://github.styleci.io/repos/224902862)
-
-This library allows you to request, renew and revoke SSL certificates provided by Let's Encrypt.
-
-If you're looking for an easy-to-use CLI tool for managing your LE certificates, take a look at the [RW ACME CLI](https://github.com/RogierW/rw-acme-cli) project.
+This library allows you to request, renew and revoke SSL certificates provided by Let's Encrypt via the ACME v2 protocol.
 
 ## Requirements
-- PHP ^8.2
+- PHP ^8.3
 - OpenSSL >= 1.0.1
 - cURL extension
 - JSON extension
 
 **Notes:**
 * It's recommended to have [dig](https://linux.die.net/man/1/dig) installed on your system, as it will be used to fetch DNS information.
-* v4 of this package only supports `php:^8.2`. If you're looking for the older versions, check out [v1](https://github.com/RogierW/rw-acme-client/tree/v1) or [v3](https://github.com/RogierW/rw-acme-client/tree/v3).
 
 ## Installation
-You can install the package via composer:
-
-`composer require rogierw/rw-acme-client`
+```
+composer require blendbyte/coyote-cert
+```
 
 ## Usage
 
-Create an instance of `Rogierw\RwAcme\Api` client and provide it with a local account that will be used to store the account keys.
+Create an instance of `CoyoteCert\Api` and provide it with a local account that will be used to store the account keys.
 
 ```php
-$localAccount = new \Rogierw\RwAcme\Support\LocalFileAccount(__DIR__.'/__account');
+$localAccount = new \CoyoteCert\Support\LocalFileAccount(__DIR__.'/__account');
 $client = new Api(localAccount: $localAccount);
 ```
 
-You could also create a client and pass the local account data later:
+You could also create a client and pass the local account later:
 
 ```php
 $client = new Api();
 
 // Do some stuff.
 
-$localAccount = new \Rogierw\RwAcme\Support\LocalFileAccount(__DIR__.'/__account');
+$localAccount = new \CoyoteCert\Support\LocalFileAccount(__DIR__.'/__account');
 $client->setLocalAccount($localAccount);
 ```
 
-> Please note that **setting a local account is required** before making any of the calls detailed below. 
+> Please note that **setting a local account is required** before making any of the calls detailed below.
 
 ### Creating an account
 ```php
@@ -83,8 +76,7 @@ $validationStatus = $client->domainValidation()->status($order);
 
 Get the name and content for the validation file:
 ```php
-// Get the data for the HTTP challenge; filename and content.
-$validationData = $client->domainValidation()->getValidationData($validationStatus, \Rogierw\RwAcme\Enums\AuthorizationChallengeEnum::HTTP);
+$validationData = $client->domainValidation()->getValidationData($validationStatus, \CoyoteCert\Enums\AuthorizationChallengeEnum::HTTP);
 ```
 
 This returns an array:
@@ -101,17 +93,16 @@ Array
 )
 ```
 
-The Let's Encrypt validation server will make a request to the following URL:
+The Let's Encrypt validation server will make a request to:
 ```
 http://example.com/.well-known/acme-challenge/sqQnDYNNywpkwuHeU4b4FTPI2mwSrDF13ti08YFMm9M
 ```
 
 #### dns-01
 
-Get the name and the value for the TXT record:
+Get the name and value for the TXT record:
 ```php
-// Get the data for the DNS challenge.
-$validationData = $client->domainValidation()->getValidationData($validationStatus, \Rogierw\RwAcme\Enums\AuthorizationChallengeEnum::DNS);
+$validationData = $client->domainValidation()->getValidationData($validationStatus, \CoyoteCert\Enums\AuthorizationChallengeEnum::DNS);
 ```
 
 This returns an array:
@@ -133,26 +124,26 @@ Array
 ##### http-01
 ```php
 try {
-    $client->domainValidation()->start($account, $validationStatus[0], \Rogierw\RwAcme\Enums\AuthorizationChallengeEnum::HTTP);
+    $client->domainValidation()->start($account, $validationStatus[0], \CoyoteCert\Enums\AuthorizationChallengeEnum::HTTP);
 } catch (DomainValidationException $exception) {
-    // The local HTTP challenge test has been failed...
+    // The local HTTP challenge test has failed...
 }
 ```
 
 ##### dns-01
 ```php
 try {
-    $client->domainValidation()->start($account, $validationStatus[0], \Rogierw\RwAcme\Enums\AuthorizationChallengeEnum::DNS);
+    $client->domainValidation()->start($account, $validationStatus[0], \CoyoteCert\Enums\AuthorizationChallengeEnum::DNS);
 } catch (DomainValidationException $exception) {
-    // The local DNS challenge test has been failed...
+    // The local DNS challenge test has failed...
 }
 ```
 
 #### Generating a CSR
 ```php
-$privateKey = \Rogierw\RwAcme\Support\OpenSsl::generatePrivateKey(key_type: OPENSSL_KEYTYPE_RSA);
-// ^- you can switch "key_type: OPENSSL_KEYTYPE_EC" to generate a ECDSA key and certificate instead of RSA
-$csr = \Rogierw\RwAcme\Support\OpenSsl::generateCsr(['example.com'], $privateKey);
+$privateKey = \CoyoteCert\Support\OpenSsl::generatePrivateKey(key_type: OPENSSL_KEYTYPE_RSA);
+// ^- switch to "key_type: OPENSSL_KEYTYPE_EC" to generate an ECDSA key and certificate instead
+$csr = \CoyoteCert\Support\OpenSsl::generateCsr(['example.com'], $privateKey);
 ```
 
 #### Finalizing order
@@ -162,7 +153,7 @@ if ($order->isReady() && $client->domainValidation()->allChallengesPassed($order
 }
 ```
 
-#### Getting the actual certificate
+#### Getting the certificate
 ```php
 if ($order->isFinalized()) {
     $certificateBundle = $client->certificate()->getBundle($order);

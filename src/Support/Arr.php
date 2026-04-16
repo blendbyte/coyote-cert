@@ -1,6 +1,6 @@
 <?php
 
-namespace Rogierw\RwAcme\Support;
+namespace CoyoteCert\Support;
 
 use ArrayAccess;
 

@@ -1,18 +1,18 @@
 <?php
 
-namespace Rogierw\RwAcme;
+namespace CoyoteCert;
 
 use Psr\Log\LoggerInterface;
-use Rogierw\RwAcme\Endpoints\Account;
-use Rogierw\RwAcme\Endpoints\Certificate;
-use Rogierw\RwAcme\Endpoints\Directory;
-use Rogierw\RwAcme\Endpoints\DomainValidation;
-use Rogierw\RwAcme\Endpoints\Nonce;
-use Rogierw\RwAcme\Endpoints\Order;
-use Rogierw\RwAcme\Exceptions\LetsEncryptClientException;
-use Rogierw\RwAcme\Http\Client;
-use Rogierw\RwAcme\Interfaces\AcmeAccountInterface;
-use Rogierw\RwAcme\Interfaces\HttpClientInterface;
+use CoyoteCert\Endpoints\Account;
+use CoyoteCert\Endpoints\Certificate;
+use CoyoteCert\Endpoints\Directory;
+use CoyoteCert\Endpoints\DomainValidation;
+use CoyoteCert\Endpoints\Nonce;
+use CoyoteCert\Endpoints\Order;
+use CoyoteCert\Exceptions\LetsEncryptClientException;
+use CoyoteCert\Http\Client;
+use CoyoteCert\Interfaces\AcmeAccountInterface;
+use CoyoteCert\Interfaces\HttpClientInterface;
 
 class Api
 {

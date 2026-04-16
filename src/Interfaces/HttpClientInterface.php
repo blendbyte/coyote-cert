@@ -1,8 +1,8 @@
 <?php
 
-namespace Rogierw\RwAcme\Interfaces;
+namespace CoyoteCert\Interfaces;
 
-use Rogierw\RwAcme\Http\Response;
+use CoyoteCert\Http\Response;
 
 interface HttpClientInterface
 {

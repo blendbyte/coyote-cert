@@ -1,18 +1,18 @@
 <?php
 
-namespace Rogierw\RwAcme\Endpoints;
+namespace CoyoteCert\Endpoints;
 
-use Rogierw\RwAcme\DTO\AccountData;
-use Rogierw\RwAcme\DTO\DomainValidationData;
-use Rogierw\RwAcme\DTO\OrderData;
-use Rogierw\RwAcme\Enums\AuthorizationChallengeEnum;
-use Rogierw\RwAcme\Exceptions\DomainValidationException;
-use Rogierw\RwAcme\Http\Response;
-use Rogierw\RwAcme\Support\Arr;
-use Rogierw\RwAcme\Support\DnsDigest;
-use Rogierw\RwAcme\Support\JsonWebKey;
-use Rogierw\RwAcme\Support\LocalChallengeTest;
-use Rogierw\RwAcme\Support\Thumbprint;
+use CoyoteCert\DTO\AccountData;
+use CoyoteCert\DTO\DomainValidationData;
+use CoyoteCert\DTO\OrderData;
+use CoyoteCert\Enums\AuthorizationChallengeEnum;
+use CoyoteCert\Exceptions\DomainValidationException;
+use CoyoteCert\Http\Response;
+use CoyoteCert\Support\Arr;
+use CoyoteCert\Support\DnsDigest;
+use CoyoteCert\Support\JsonWebKey;
+use CoyoteCert\Support\LocalChallengeTest;
+use CoyoteCert\Support\Thumbprint;
 
 class DomainValidation extends Endpoint
 {
@@ -76,7 +76,7 @@ class DomainValidation extends Endpoint
         return $authorizations;
     }
 
-    /** @throws \Rogierw\RwAcme\Exceptions\DomainValidationException */
+    /** @throws \CoyoteCert\Exceptions\DomainValidationException */
     public function start(
         AccountData $accountData,
         DomainValidationData $domainValidation,

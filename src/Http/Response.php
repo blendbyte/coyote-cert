@@ -1,6 +1,6 @@
 <?php
 
-namespace Rogierw\RwAcme\Http;
+namespace CoyoteCert\Http;
 
 class Response
 {

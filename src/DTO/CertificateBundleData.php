@@ -1,11 +1,10 @@
 <?php
 
-namespace Rogierw\RwAcme\DTO;
+namespace CoyoteCert\DTO;
 
-use Rogierw\RwAcme\Http\Response;
-use Spatie\LaravelData\Data;
+use CoyoteCert\Http\Response;
 
-class CertificateBundleData extends Data
+readonly class CertificateBundleData
 {
     public function __construct(
         public string $certificate,

@@ -1,13 +1,12 @@
 <?php
 
-namespace Rogierw\RwAcme\DTO;
+namespace CoyoteCert\DTO;
 
-use Rogierw\RwAcme\Enums\AuthorizationChallengeEnum;
-use Rogierw\RwAcme\Http\Response;
-use Rogierw\RwAcme\Support\Arr;
-use Spatie\LaravelData\Data;
+use CoyoteCert\Enums\AuthorizationChallengeEnum;
+use CoyoteCert\Http\Response;
+use CoyoteCert\Support\Arr;
 
-class DomainValidationData extends Data
+readonly class DomainValidationData
 {
     public function __construct(
         public array $identifier,

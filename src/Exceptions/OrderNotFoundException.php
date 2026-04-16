@@ -1,6 +1,6 @@
 <?php
 
-namespace Rogierw\RwAcme\Exceptions;
+namespace CoyoteCert\Exceptions;
 
 class OrderNotFoundException extends LetsEncryptClientException
 {

@@ -1,12 +1,11 @@
 <?php
 
-namespace Rogierw\RwAcme\DTO;
+namespace CoyoteCert\DTO;
 
-use Rogierw\RwAcme\Http\Response;
-use Rogierw\RwAcme\Support\Url;
-use Spatie\LaravelData\Data;
+use CoyoteCert\Http\Response;
+use CoyoteCert\Support\Url;
 
-class AccountData extends Data
+readonly class AccountData
 {
     public function __construct(
         public string $id,

@@ -1,9 +1,9 @@
 <?php
 
-namespace Rogierw\RwAcme\Support;
+namespace CoyoteCert\Support;
 
-use Rogierw\RwAcme\Exceptions\DomainValidationException;
-use Rogierw\RwAcme\Interfaces\HttpClientInterface;
+use CoyoteCert\Exceptions\DomainValidationException;
+use CoyoteCert\Interfaces\HttpClientInterface;
 use RuntimeException;
 use Spatie\Dns\Dns;
 

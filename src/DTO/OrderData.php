@@ -1,23 +1,22 @@
 <?php
 
-namespace Rogierw\RwAcme\DTO;
+namespace CoyoteCert\DTO;
 
-use Rogierw\RwAcme\Http\Response;
-use Rogierw\RwAcme\Support\Arr;
-use Rogierw\RwAcme\Support\Url;
-use Spatie\LaravelData\Data;
+use CoyoteCert\Http\Response;
+use CoyoteCert\Support\Arr;
+use CoyoteCert\Support\Url;
 
-class OrderData extends Data
+class OrderData
 {
     public function __construct(
-        public string $id,
-        public string $url,
-        public string $status,
-        public string $expires,
-        public array $identifiers,
-        public array $domainValidationUrls,
-        public string $finalizeUrl,
-        public string $accountUrl,
+        public readonly string $id,
+        public readonly string $url,
+        public readonly string $status,
+        public readonly string $expires,
+        public readonly array $identifiers,
+        public readonly array $domainValidationUrls,
+        public readonly string $finalizeUrl,
+        public readonly string $accountUrl,
         public ?string $certificateUrl,
         public bool $finalized = false,
     ) {

@@ -1,7 +1,9 @@
 {
   "name": "blendbyte/coyote-cert",
-"type": "library",
-"license": "MIT",
+  "description": "ACME v2 PHP library for issuing, renewing, and revoking TLS certificates from Let's Encrypt and any RFC 8555-compliant CA.",
+  "keywords": ["acme", "letsencrypt", "ssl", "tls", "certificate", "psr-18"],
+  "type": "library",
+  "license": "MIT",
   "require": {
     "php": "^8.3",
     "ext-curl": "*",

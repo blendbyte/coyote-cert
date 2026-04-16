@@ -1,168 +1,334 @@
-# coyote-cert — ACME v2 certificate client for PHP
+# coyote-cert
 
-This library allows you to request, renew and revoke SSL certificates provided by Let's Encrypt via the ACME v2 protocol.
+ACME v2 PHP library for issuing, renewing, and revoking TLS certificates from Let's Encrypt and any other RFC 8555-compliant CA.
 
 ## Requirements
-- PHP ^8.3
-- OpenSSL >= 1.0.1
-- cURL extension
-- JSON extension
 
-**Notes:**
-* It's recommended to have [dig](https://linux.die.net/man/1/dig) installed on your system, as it will be used to fetch DNS information.
+- PHP ^8.3
+- `ext-curl`, `ext-json`, `ext-mbstring`, `ext-openssl`
 
 ## Installation
-```
+
+```bash
 composer require blendbyte/coyote-cert
 ```
 
-## Usage
-
-Create an instance of `CoyoteCert\Api` and provide it with a local account that will be used to store the account keys.
+## Quick start
 
 ```php
-$localAccount = new \CoyoteCert\Support\LocalFileAccount(__DIR__.'/__account');
-$client = new Api(localAccount: $localAccount);
+use CoyoteCert\CoyoteCert;
+use CoyoteCert\Challenge\Http01Handler;
+use CoyoteCert\Provider\LetsEncrypt;
+use CoyoteCert\Storage\FilesystemStorage;
+
+$cert = CoyoteCert::with(new LetsEncrypt())
+    ->storage(new FilesystemStorage('/var/certs'))
+    ->domains('example.com')
+    ->email('admin@example.com')
+    ->challenge(new Http01Handler('/var/www/html'))
+    ->issue();
+
+echo $cert->certificate; // PEM-encoded certificate
+echo $cert->privateKey;  // PEM-encoded private key
+echo $cert->fullchain;   // certificate + intermediates
 ```
 
-You could also create a client and pass the local account later:
+## Providers
+
+| Provider | EAB required | Notes |
+|---|---|---|
+| `LetsEncrypt` | No | Production |
+| `LetsEncryptStaging` | No | Testing — not browser-trusted |
+| `ZeroSSL` | Yes | API key for auto-provisioning, or manual credentials |
+| `BuypassGo` | No | |
+| `BuypassGoStaging` | No | Testing |
+| `GoogleTrustServices` | Yes | Credentials from Google Cloud Console |
+| `SslCom` | Yes | RSA and ECC endpoints |
+| `CustomProvider` | Optional | Any ACME-compliant CA |
+
+### Let's Encrypt
 
 ```php
-$client = new Api();
+use CoyoteCert\Provider\LetsEncrypt;
+use CoyoteCert\Provider\LetsEncryptStaging;
 
-// Do some stuff.
-
-$localAccount = new \CoyoteCert\Support\LocalFileAccount(__DIR__.'/__account');
-$client->setLocalAccount($localAccount);
+new LetsEncrypt()
+new LetsEncryptStaging()  // safe for testing
 ```
 
-> Please note that **setting a local account is required** before making any of the calls detailed below.
+### ZeroSSL
 
-### Creating an account
 ```php
-if (! $client->account()->exists()) {
-    $account = $client->account()->create();
-}
+use CoyoteCert\Provider\ZeroSSL;
 
-// Or get an existing account.
-$account = $client->account()->get();
+// Automatic EAB provisioning via API key (from zerossl.com dashboard)
+CoyoteCert::with(new ZeroSSL(apiKey: 'your-api-key'))
+    ->email('admin@example.com')  // required for auto-provisioning
+    ->...
+
+// Pre-provisioned credentials
+CoyoteCert::with(new ZeroSSL(eabKid: 'kid', eabHmac: 'hmac'))
+    ->...
 ```
 
-### Difference between `account` and `localAccount`
-- `account` is the account created at the ACME (Let's Encrypt) server with data from the `localAccount`.
-- `localAccount` handles the private/public key pair used to sign requests to the ACME server. Depending on the implementation, this data is stored locally or, for example, in a database.
+### Google Trust Services
 
-### Creating an order
+Obtain EAB credentials from the [Google Cloud Console](https://cloud.google.com/certificate-manager/docs/public-ca-tutorial).
+
 ```php
-$order = $client->order()->new($account, ['example.com']);
+use CoyoteCert\Provider\GoogleTrustServices;
+
+CoyoteCert::with(new GoogleTrustServices(eabKid: 'kid', eabHmac: 'hmac'))
+    ->...
 ```
 
-#### Renewal
-Simply create a new order to renew an existing certificate as described above. Ensure that you use the same account as you did for the initial request.
+### SSL.com
 
-#### Getting an order
 ```php
-$order = $client->order()->get($order->id);
+use CoyoteCert\Provider\SslCom;
+
+new SslCom(eabKid: 'kid', eabHmac: 'hmac')            // RSA endpoint
+new SslCom(eabKid: 'kid', eabHmac: 'hmac', ecc: true) // ECC endpoint
 ```
 
-### Domain validation
+### Buypass
 
-#### Getting the DCV status
 ```php
-$validationStatus = $client->domainValidation()->status($order);
+use CoyoteCert\Provider\BuypassGo;
+use CoyoteCert\Provider\BuypassGoStaging;
+
+new BuypassGo()
+new BuypassGoStaging()
 ```
 
-#### http-01
+### Custom CA
 
-Get the name and content for the validation file:
 ```php
-$validationData = $client->domainValidation()->getValidationData($validationStatus, \CoyoteCert\Enums\AuthorizationChallengeEnum::HTTP);
-```
+use CoyoteCert\Provider\CustomProvider;
 
-This returns an array:
-```php
-Array
-(
-    [0] => Array
-        (
-            [type] => http-01
-            [identifier] => example.com
-            [filename] => sqQnDYNNywpkwuHeU4b4FTPI2mwSrDF13ti08YFMm9M
-            [content] => sqQnDYNNywpkwuHeU4b4FTPI2mwSrDF13ti08YFMm9M.kB7_eWSDdG3aWIaPSp6Uy4vLBbBI5M0COvM-AZOBcoQ
-        )
+new CustomProvider(
+    directoryUrl: 'https://acme.example.com/directory',
+    displayName:  'My CA',       // used in logs
+    eabKid:       'kid',         // omit if EAB not required
+    eabHmac:      'hmac',
 )
 ```
 
-The Let's Encrypt validation server will make a request to:
-```
-http://example.com/.well-known/acme-challenge/sqQnDYNNywpkwuHeU4b4FTPI2mwSrDF13ti08YFMm9M
-```
+## Challenge handlers
 
-#### dns-01
+### http-01
 
-Get the name and value for the TXT record:
 ```php
-$validationData = $client->domainValidation()->getValidationData($validationStatus, \CoyoteCert\Enums\AuthorizationChallengeEnum::DNS);
+use CoyoteCert\Challenge\Http01Handler;
+
+->challenge(new Http01Handler('/var/www/html'))
 ```
 
-This returns an array:
+Places a token file at `{webroot}/.well-known/acme-challenge/{token}`. The web server must serve it without authentication.
+
+### dns-01
+
+Implement `ChallengeHandlerInterface`:
+
 ```php
-Array
-(
-    [0] => Array
-        (
-            [type] => dns-01
-            [identifier] => example.com
-            [name] => _acme-challenge
-            [value] => 8hSNdxGNkx4MI7ZN5F8uZj3cTSMX92SGMCMHQMh0cMA
-        )
+use CoyoteCert\Enums\AuthorizationChallengeEnum;
+use CoyoteCert\Interfaces\ChallengeHandlerInterface;
+
+class MyDns01Handler implements ChallengeHandlerInterface
+{
+    public function supports(AuthorizationChallengeEnum $type): bool
+    {
+        return $type === AuthorizationChallengeEnum::DNS;
+    }
+
+    public function deploy(string $domain, string $token, string $keyAuth): void
+    {
+        MyDnsProvider::setTxt('_acme-challenge.' . $domain, $keyAuth);
+    }
+
+    public function cleanup(string $domain, string $token): void
+    {
+        MyDnsProvider::deleteTxt('_acme-challenge.' . $domain);
+    }
+}
+```
+
+### dns-persist-01
+
+Like dns-01 but the TXT record persists between renewals — eliminates the DNS propagation wait on every renewal. Extend `DnsPersist01Handler` (cleanup is automatically a no-op):
+
+```php
+use CoyoteCert\Challenge\DnsPersist01Handler;
+
+class MyDnsPersist01Handler extends DnsPersist01Handler
+{
+    public function deploy(string $domain, string $token, string $keyAuth): void
+    {
+        MyDnsProvider::setTxt('_acme-challenge.' . $domain, $keyAuth);
+    }
+}
+```
+
+## Storage
+
+### Filesystem
+
+```php
+use CoyoteCert\Storage\FilesystemStorage;
+
+->storage(new FilesystemStorage('/var/certs'))
+```
+
+Stores the account key and each certificate as JSON files in the given directory.
+
+### In-memory
+
+```php
+use CoyoteCert\Storage\InMemoryStorage;
+
+->storage(new InMemoryStorage())
+```
+
+Useful for testing or one-shot scripts where persistence is not needed.
+
+### Custom
+
+Implement `StorageInterface`:
+
+```php
+use CoyoteCert\Enums\KeyType;
+use CoyoteCert\Storage\StorageInterface;
+use CoyoteCert\Storage\StoredCertificate;
+
+class DatabaseStorage implements StorageInterface
+{
+    public function hasAccountKey(): bool { ... }
+    public function getAccountKey(): string { ... }
+    public function getAccountKeyType(): KeyType { ... }
+    public function saveAccountKey(string $pem, KeyType $type): void { ... }
+    public function hasCertificate(string $domain): bool { ... }
+    public function getCertificate(string $domain): ?StoredCertificate { ... }
+    public function saveCertificate(string $domain, StoredCertificate $cert): void { ... }
+}
+```
+
+## Issuing and renewing
+
+### Issue (unconditional)
+
+Always requests a fresh certificate, even if a valid one is already stored.
+
+```php
+$cert = CoyoteCert::with(new LetsEncrypt())
+    ->storage(new FilesystemStorage('/var/certs'))
+    ->domains('example.com')
+    ->challenge(new Http01Handler('/var/www/html'))
+    ->issue();
+```
+
+### Issue or renew
+
+Returns the cached certificate if it is still valid; issues a new one otherwise. Renewal triggers when fewer than `$daysBeforeExpiry` days remain, or earlier when the CA provides an ACME Renewal Information (ARI) window.
+
+```php
+$cert = CoyoteCert::with(new LetsEncrypt())
+    ->storage(new FilesystemStorage('/var/certs'))
+    ->domains('example.com')
+    ->challenge(new Http01Handler('/var/www/html'))
+    ->issueOrRenew(daysBeforeExpiry: 30);
+```
+
+### Multiple domains (SAN)
+
+```php
+->domains(['example.com', 'www.example.com', 'api.example.com'])
+```
+
+## Builder reference
+
+| Method | Default | Description |
+|---|---|---|
+| `::with(AcmeProviderInterface)` | — | Select the CA |
+| `->storage(StorageInterface)` | none | Persist account key and certificates |
+| `->email(string)` | `''` | Contact email; required for ZeroSSL auto-provisioning |
+| `->domains(string\|array)` | — | Domain(s) to certify |
+| `->challenge(ChallengeHandlerInterface)` | — | Challenge deployment handler |
+| `->keyType(KeyType)` | `EC_P256` | Certificate key type |
+| `->accountKeyType(KeyType)` | `RSA_2048` | ACME account key type |
+| `->profile(string)` | `''` | ACME profile (`shortlived`, `classic`) |
+| `->httpClient(ClientInterface, ...)` | curl | PSR-18 HTTP client |
+| `->logger(LoggerInterface)` | none | PSR-3 logger |
+| `->skipLocalTest()` | off | Skip the pre-flight HTTP/DNS self-check |
+
+## Key types
+
+```php
+use CoyoteCert\Enums\KeyType;
+
+->keyType(KeyType::EC_P256)   // default — fast and widely supported
+->keyType(KeyType::EC_P384)
+->keyType(KeyType::RSA_2048)
+->keyType(KeyType::RSA_4096)
+```
+
+## ACME profiles (Let's Encrypt)
+
+Profiles control the certificate lifetime. Let's Encrypt currently supports:
+
+```php
+->profile('shortlived') // 6-day certificate — no OCSP/CRL stapling needed
+->profile('classic')    // 90-day certificate (default behaviour)
+```
+
+Profiles are silently ignored for CAs that don't support them.
+
+## PSR-18 HTTP client
+
+Swap out the built-in curl client for any PSR-18 implementation:
+
+```php
+// Symfony — Psr18Client implements RequestFactory + StreamFactory too
+->httpClient(new \Symfony\Component\HttpClient\Psr18Client())
+
+// Guzzle — pass a factory separately
+->httpClient(
+    new \GuzzleHttp\Client(),
+    new \GuzzleHttp\Psr7\HttpFactory(),
 )
 ```
 
-#### Start domain validation
+## Revocation
 
-##### http-01
 ```php
-try {
-    $client->domainValidation()->start($account, $validationStatus[0], \CoyoteCert\Enums\AuthorizationChallengeEnum::HTTP);
-} catch (DomainValidationException $exception) {
-    // The local HTTP challenge test has failed...
-}
+use CoyoteCert\CoyoteCert;
+use CoyoteCert\Provider\LetsEncrypt;
+use CoyoteCert\Storage\FilesystemStorage;
+
+CoyoteCert::with(new LetsEncrypt())
+    ->storage(new FilesystemStorage('/var/certs'))
+    ->revoke($storedCert);          // reason 0 — unspecified
+
+// RFC 5280 reason codes
+->revoke($storedCert, reason: 1);   // keyCompromise
+->revoke($storedCert, reason: 4);   // superseded
+->revoke($storedCert, reason: 5);   // cessationOfOperation
 ```
 
-##### dns-01
+## Low-level API
+
+The `Api` class gives direct access to each ACME endpoint for cases not covered by the fluent builder:
+
 ```php
-try {
-    $client->domainValidation()->start($account, $validationStatus[0], \CoyoteCert\Enums\AuthorizationChallengeEnum::DNS);
-} catch (DomainValidationException $exception) {
-    // The local DNS challenge test has failed...
-}
+use CoyoteCert\Api;
+use CoyoteCert\Provider\LetsEncrypt;
+
+$api = new Api(provider: new LetsEncrypt(), storage: $storage);
+
+$account = $api->account()->get();
+$order   = $api->order()->new($account, ['example.com']);
+$window  = $api->renewalInfo()->get($cert->certificate, $issuerPem);
 ```
 
-#### Generating a CSR
-```php
-$privateKey = \CoyoteCert\Support\OpenSsl::generatePrivateKey(key_type: OPENSSL_KEYTYPE_RSA);
-// ^- switch to "key_type: OPENSSL_KEYTYPE_EC" to generate an ECDSA key and certificate instead
-$csr = \CoyoteCert\Support\OpenSsl::generateCsr(['example.com'], $privateKey);
-```
+## License
 
-#### Finalizing order
-```php
-if ($order->isReady() && $client->domainValidation()->allChallengesPassed($order)) {
-    $client->order()->finalize($order, $csr);
-}
-```
-
-#### Getting the certificate
-```php
-if ($order->isFinalized()) {
-    $certificateBundle = $client->certificate()->getBundle($order);
-}
-```
-
-#### Revoke a certificate
-```php
-if ($order->isValid()) {
-    $client->certificate()->revoke($certificateBundle->fullchain);
-}
-```
+MIT

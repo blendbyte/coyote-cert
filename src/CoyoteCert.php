@@ -290,6 +290,32 @@ class CoyoteCert
     }
 
     /**
+     * Revoke a previously issued certificate.
+     *
+     * Requires storage to be configured (the account key is used to sign the request).
+     *
+     * @param int $reason RFC 5280 reason code (0 = unspecified, 1 = keyCompromise, …)
+     */
+    public function revoke(StoredCertificate $cert, int $reason = 0): bool
+    {
+        if ($this->storage === null) {
+            throw new LetsEncryptClientException(
+                'No storage configured. Call ->storage() before revoking.'
+            );
+        }
+
+        $api = new Api(
+            provider:       $this->provider,
+            storage:        $this->storage,
+            logger:         $this->logger,
+            httpClient:     $this->httpClient,
+            accountKeyType: $this->accountKeyType,
+        );
+
+        return $api->certificate()->revoke($cert->certificate, $reason);
+    }
+
+    /**
      * Issue only when the certificate is absent or expires within $daysBeforeExpiry days.
      * Returns the existing certificate if it is still valid.
      */

@@ -339,8 +339,9 @@ class CoyoteCert
     private function extractTokenAndKeyAuth(array $item, AuthorizationChallengeEnum $type): array
     {
         return match ($type) {
-            AuthorizationChallengeEnum::HTTP => [$item['filename'], $item['content']],
-            AuthorizationChallengeEnum::DNS  => [$item['name'],     $item['value']],
+            AuthorizationChallengeEnum::HTTP        => [$item['filename'], $item['content']],
+            AuthorizationChallengeEnum::DNS,
+            AuthorizationChallengeEnum::DNS_PERSIST => [$item['name'],     $item['value']],
         };
     }
 }

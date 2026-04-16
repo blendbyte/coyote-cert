@@ -71,6 +71,18 @@ class DomainValidation extends Endpoint
                     'value' => DnsDigest::make($domainValidationData->dns['token'], $thumbprint),
                 ];
             }
+
+            if (
+                (is_null($authChallenge) || $authChallenge === AuthorizationChallengeEnum::DNS_PERSIST)
+                && !empty($domainValidationData->dnsPersist)
+            ) {
+                $authorizations[] = [
+                    'identifier' => $domainValidationData->identifier['value'],
+                    'type' => $domainValidationData->dnsPersist['type'],
+                    'name' => '_acme-challenge',
+                    'value' => DnsDigest::make($domainValidationData->dnsPersist['token'], $thumbprint),
+                ];
+            }
         }
 
         return $authorizations;
@@ -89,30 +101,35 @@ class DomainValidation extends Endpoint
             Arr::get($domainValidation->identifier, 'value', '')
         ));
 
-        $type = $authChallenge === AuthorizationChallengeEnum::DNS ? 'dns' : 'file';
         $thumbprint = JsonWebKey::thumbprint(JsonWebKey::compute($this->getAccountPrivateKey()));
 
-        if (empty($domainValidation->{$type})) {
-            throw new DomainValidationException(sprintf('No %s challenge found for %s', $type, $domainValidation->identifier['value']));
+        $challengeData = $domainValidation->challengeData($authChallenge);
+
+        if (empty($challengeData)) {
+            throw new DomainValidationException(sprintf(
+                'No %s challenge found for %s',
+                $authChallenge->value,
+                $domainValidation->identifier['value']
+            ));
         }
 
-        $keyAuthorization = $domainValidation->{$type}['token'].'.'.$thumbprint;
+        $keyAuthorization = $challengeData['token'].'.'.$thumbprint;
 
         if ($localTest) {
             if ($authChallenge === AuthorizationChallengeEnum::HTTP) {
                 LocalChallengeTest::http(
                     $domainValidation->identifier['value'],
-                    $domainValidation->file['token'],
+                    $challengeData['token'],
                     $keyAuthorization,
                     $this->client->getHttpClient()
                 );
             }
 
-            if ($authChallenge === AuthorizationChallengeEnum::DNS) {
+            if ($authChallenge === AuthorizationChallengeEnum::DNS || $authChallenge === AuthorizationChallengeEnum::DNS_PERSIST) {
                 LocalChallengeTest::dns(
                     $domainValidation->identifier['value'],
                     '_acme-challenge',
-                    DnsDigest::make($domainValidation->{$type}['token'], $thumbprint),
+                    DnsDigest::make($challengeData['token'], $thumbprint),
                 );
             }
         }
@@ -121,9 +138,9 @@ class DomainValidation extends Endpoint
             'keyAuthorization' => $keyAuthorization,
         ];
 
-        $data = $this->createKeyId($accountData->url, $domainValidation->{$type}['url'], $payload);
+        $data = $this->createKeyId($accountData->url, $challengeData['url'], $payload);
 
-        $response = $this->client->getHttpClient()->post($domainValidation->{$type}['url'], $data);
+        $response = $this->client->getHttpClient()->post($challengeData['url'], $data);
 
         if ($response->getHttpResponseCode() >= 400) {
             $this->logResponse(

@@ -14,19 +14,24 @@ readonly class DomainValidationData
         public string $expires,
         public array $file,
         public array $dns,
+        public array $dnsPersist,
         public array $validationRecord,
     ) {
     }
 
     public static function fromResponse(Response $response): DomainValidationData
     {
+        $body       = $response->getBody();
+        $challenges = $body['challenges'];
+
         return new self(
-            identifier: $response->getBody()['identifier'],
-            status: $response->getBody()['status'],
-            expires: $response->getBody()['expires'],
-            file: self::getValidationByType($response->getBody()['challenges'], AuthorizationChallengeEnum::HTTP),
-            dns: self::getValidationByType($response->getBody()['challenges'], AuthorizationChallengeEnum::DNS),
-            validationRecord: Arr::get($response->getBody(), 'validationRecord', []),
+            identifier:       $body['identifier'],
+            status:           $body['status'],
+            expires:          $body['expires'],
+            file:             self::getValidationByType($challenges, AuthorizationChallengeEnum::HTTP),
+            dns:              self::getValidationByType($challenges, AuthorizationChallengeEnum::DNS),
+            dnsPersist:       self::getValidationByType($challenges, AuthorizationChallengeEnum::DNS_PERSIST),
+            validationRecord: Arr::get($body, 'validationRecord', []),
         );
     }
 
@@ -58,12 +63,11 @@ readonly class DomainValidationData
 
     public function hasErrors(): bool
     {
-        if (array_key_exists('error', $this->file) && !empty($this->file['error'])) {
-            return true;
-        }
-
-        if (array_key_exists('error', $this->dns) && !empty($this->dns['error'])) {
-            return true;
+        foreach ([AuthorizationChallengeEnum::HTTP, AuthorizationChallengeEnum::DNS, AuthorizationChallengeEnum::DNS_PERSIST] as $type) {
+            $data = $this->challengeData($type);
+            if (!empty($data['error'])) {
+                return true;
+            }
         }
 
         return false;
@@ -71,22 +75,31 @@ readonly class DomainValidationData
 
     public function getErrors(): array
     {
-        if ($this->hasErrors()) {
-            $data = [];
-
-            $data[] = [
-                'domainValidationType' => AuthorizationChallengeEnum::HTTP->value,
-                'error' => Arr::get($this->file, 'error'),
-            ];
-
-            $data[] = [
-                'domainValidationType' => AuthorizationChallengeEnum::DNS->value,
-                'error' => Arr::get($this->dns, 'error'),
-            ];
-
-            return $data;
+        if (!$this->hasErrors()) {
+            return [];
         }
 
-        return [];
+        $errors = [];
+
+        foreach ([AuthorizationChallengeEnum::HTTP, AuthorizationChallengeEnum::DNS, AuthorizationChallengeEnum::DNS_PERSIST] as $type) {
+            $data = $this->challengeData($type);
+            if (!empty($data)) {
+                $errors[] = [
+                    'domainValidationType' => $type->value,
+                    'error'                => Arr::get($data, 'error'),
+                ];
+            }
+        }
+
+        return $errors;
+    }
+
+    public function challengeData(AuthorizationChallengeEnum $type): array
+    {
+        return match ($type) {
+            AuthorizationChallengeEnum::HTTP        => $this->file,
+            AuthorizationChallengeEnum::DNS         => $this->dns,
+            AuthorizationChallengeEnum::DNS_PERSIST => $this->dnsPersist,
+        };
     }
 }

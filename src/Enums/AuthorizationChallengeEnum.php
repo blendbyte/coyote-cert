@@ -1,6 +1,6 @@
 <?php
 
-namespace Rogierw\RwAcme\Enums;
+namespace CoyoteCert\Enums;
 
 enum AuthorizationChallengeEnum: string
 {

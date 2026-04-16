@@ -1,9 +1,9 @@
 <?php
 
-namespace Rogierw\RwAcme\Http;
+namespace CoyoteCert\Http;
 
 use CurlHandle;
-use Rogierw\RwAcme\Interfaces\HttpClientInterface;
+use CoyoteCert\Interfaces\HttpClientInterface;
 
 class Client implements HttpClientInterface
 {

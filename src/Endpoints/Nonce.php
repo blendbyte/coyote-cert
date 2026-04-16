@@ -1,6 +1,6 @@
 <?php
 
-namespace Rogierw\RwAcme\Endpoints;
+namespace CoyoteCert\Endpoints;
 
 class Nonce extends Endpoint
 {

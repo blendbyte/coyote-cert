@@ -1,9 +1,9 @@
 <?php
 
-namespace Rogierw\RwAcme\Support;
+namespace CoyoteCert\Support;
 
-use Rogierw\RwAcme\Exceptions\LetsEncryptClientException;
-use Rogierw\RwAcme\Interfaces\AcmeAccountInterface;
+use CoyoteCert\Exceptions\LetsEncryptClientException;
+use CoyoteCert\Interfaces\AcmeAccountInterface;
 
 class LocalFileAccount implements AcmeAccountInterface
 {

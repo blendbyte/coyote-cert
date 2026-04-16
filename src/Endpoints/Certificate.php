@@ -1,11 +1,11 @@
 <?php
 
-namespace Rogierw\RwAcme\Endpoints;
+namespace CoyoteCert\Endpoints;
 
-use Rogierw\RwAcme\DTO\CertificateBundleData;
-use Rogierw\RwAcme\DTO\OrderData;
-use Rogierw\RwAcme\Exceptions\LetsEncryptClientException;
-use Rogierw\RwAcme\Support\Base64;
+use CoyoteCert\DTO\CertificateBundleData;
+use CoyoteCert\DTO\OrderData;
+use CoyoteCert\Exceptions\LetsEncryptClientException;
+use CoyoteCert\Support\Base64;
 
 class Certificate extends Endpoint
 {

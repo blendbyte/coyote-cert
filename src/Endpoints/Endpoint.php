@@ -1,10 +1,10 @@
 <?php
 
-namespace Rogierw\RwAcme\Endpoints;
+namespace CoyoteCert\Endpoints;
 
-use Rogierw\RwAcme\Api;
-use Rogierw\RwAcme\Http\Response;
-use Rogierw\RwAcme\Support\KeyId;
+use CoyoteCert\Api;
+use CoyoteCert\Http\Response;
+use CoyoteCert\Support\KeyId;
 
 abstract class Endpoint
 {

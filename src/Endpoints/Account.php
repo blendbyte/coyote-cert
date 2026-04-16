@@ -1,11 +1,11 @@
 <?php
 
-namespace Rogierw\RwAcme\Endpoints;
+namespace CoyoteCert\Endpoints;
 
-use Rogierw\RwAcme\DTO\AccountData;
-use Rogierw\RwAcme\Exceptions\LetsEncryptClientException;
-use Rogierw\RwAcme\Http\Response;
-use Rogierw\RwAcme\Support\JsonWebSignature;
+use CoyoteCert\DTO\AccountData;
+use CoyoteCert\Exceptions\LetsEncryptClientException;
+use CoyoteCert\Http\Response;
+use CoyoteCert\Support\JsonWebSignature;
 
 class Account extends Endpoint
 {

@@ -1,8 +1,8 @@
 <?php
 
-namespace Rogierw\RwAcme\Support;
+namespace CoyoteCert\Support;
 
-use Rogierw\RwAcme\Exceptions\LetsEncryptClientException;
+use CoyoteCert\Exceptions\LetsEncryptClientException;
 
 class CryptRSA
 {

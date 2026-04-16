@@ -1,32 +1,22 @@
 {
-  "name": "rogierw/rw-acme-client",
-  "description": "LetsEncrypt client library for ACME v2 written in PHP.",
-  "homepage": "https://github.com/RogierW/rw-acme-client",
+  "name": "blendbyte/coyote-cert",
+  "description": "ACME v2 (Let's Encrypt) certificate client library for PHP.",
   "license": "MIT",
-  "authors": [
-    {
-      "name": "Rogier van der Werf",
-      "email": "rogier@rwweb.nl",
-      "homepage": "http://rogier.eu",
-      "role": "Developer"
-    }
-  ],
   "require": {
-    "php": "^8.2",
+    "php": "^8.3",
     "ext-curl": "*",
     "ext-json": "*",
     "ext-mbstring": "*",
     "ext-openssl": "*",
     "psr/log": "^3.0",
-    "spatie/dns": "^2.5",
-    "spatie/laravel-data": "^3.9|^4.0"
+    "spatie/dns": "^2.5"
   },
   "require-dev": {
     "larapack/dd": "^1.0"
   },
   "autoload": {
     "psr-4": {
-      "Rogierw\\RwAcme\\": "src"
+      "CoyoteCert\\": "src"
     },
     "files": [
       "src/Support/helpers.php"

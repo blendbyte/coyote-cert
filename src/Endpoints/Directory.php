@@ -1,9 +1,9 @@
 <?php
 
-namespace Rogierw\RwAcme\Endpoints;
+namespace CoyoteCert\Endpoints;
 
-use Rogierw\RwAcme\Exceptions\LetsEncryptClientException;
-use Rogierw\RwAcme\Http\Response;
+use CoyoteCert\Exceptions\LetsEncryptClientException;
+use CoyoteCert\Http\Response;
 
 class Directory extends Endpoint
 {

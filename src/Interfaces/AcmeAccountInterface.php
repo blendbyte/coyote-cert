@@ -1,6 +1,6 @@
 <?php
 
-namespace Rogierw\RwAcme\Interfaces;
+namespace CoyoteCert\Interfaces;
 
 interface AcmeAccountInterface
 {

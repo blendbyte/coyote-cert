@@ -125,11 +125,20 @@ class DatabaseStorage implements StorageInterface
 
     private function set(string $key, string $value): void
     {
-        $stmt = $this->pdo->prepare(
-            "INSERT INTO `{$this->table}` (`store_key`, `value`)
-             VALUES (:key, :value)
-             ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)"
-        );
-        $stmt->execute([':key' => $key, ':value' => $value]);
+        $driver = $this->pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'sqlite') {
+            $sql = "INSERT OR REPLACE INTO `{$this->table}` (`store_key`, `value`) VALUES (:key, :value)";
+        } elseif ($driver === 'pgsql') {
+            $sql = "INSERT INTO \"{$this->table}\" (\"store_key\", \"value\")
+                    VALUES (:key, :value)
+                    ON CONFLICT (\"store_key\") DO UPDATE SET \"value\" = EXCLUDED.\"value\"";
+        } else {
+            $sql = "INSERT INTO `{$this->table}` (`store_key`, `value`)
+                    VALUES (:key, :value)
+                    ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)";
+        }
+
+        $this->pdo->prepare($sql)->execute([':key' => $key, ':value' => $value]);
     }
 }

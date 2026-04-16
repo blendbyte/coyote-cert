@@ -32,7 +32,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: curl, json, mbstring, openssl
-          coverage: none
+          coverage: pcov
 
       - name: Install dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
@@ -45,4 +45,4 @@ jobs:
       - name: Run tests
         env:
           PEBBLE_URL: https://localhost:14000/dir
-        run: vendor/bin/pest --parallel --no-output
+        run: vendor/bin/pest --parallel --coverage --min=80

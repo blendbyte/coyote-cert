@@ -13,7 +13,7 @@ readonly class AccountData
         public array $key,
         public string $status,
         public string $agreement,
-        public string $createdAt,
+        public ?string $createdAt,
     ) {
     }
 

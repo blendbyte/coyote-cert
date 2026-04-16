@@ -1,0 +1,33 @@
+<?php
+
+namespace CoyoteCert\Provider;
+
+use CoyoteCert\DTO\EabCredentials;
+
+class LetsEncrypt implements AcmeProviderInterface
+{
+    public function getDirectoryUrl(): string
+    {
+        return 'https://acme-v02.api.letsencrypt.org/directory';
+    }
+
+    public function getDisplayName(): string
+    {
+        return "Let's Encrypt";
+    }
+
+    public function isEabRequired(): bool
+    {
+        return false;
+    }
+
+    public function getEabCredentials(string $email): ?EabCredentials
+    {
+        return null;
+    }
+
+    public function verifyTls(): bool
+    {
+        return true;
+    }
+}

@@ -9,42 +9,40 @@ use CoyoteCert\Endpoints\Directory;
 use CoyoteCert\Endpoints\DomainValidation;
 use CoyoteCert\Endpoints\Nonce;
 use CoyoteCert\Endpoints\Order;
+use CoyoteCert\Enums\KeyType;
 use CoyoteCert\Exceptions\LetsEncryptClientException;
 use CoyoteCert\Http\Client;
 use CoyoteCert\Interfaces\AcmeAccountInterface;
 use CoyoteCert\Interfaces\HttpClientInterface;
+use CoyoteCert\Provider\AcmeProviderInterface;
+use CoyoteCert\Storage\StorageAccountAdapter;
+use CoyoteCert\Storage\StorageInterface;
 
 class Api
 {
-    private const PRODUCTION_URL = 'https://acme-v02.api.letsencrypt.org';
-    private const STAGING_URL = 'https://acme-staging-v02.api.letsencrypt.org';
-
     public function __construct(
-        bool $staging = false,
-        private ?AcmeAccountInterface $localAccount = null,
-        private ?LoggerInterface $logger = null,
-        private ?HttpClientInterface $httpClient = null,
-        private ?string $baseUrl = null,
+        private readonly AcmeProviderInterface $provider,
+        private readonly ?StorageInterface     $storage         = null,
+        private ?LoggerInterface               $logger          = null,
+        private ?HttpClientInterface           $httpClient      = null,
+        private readonly KeyType               $accountKeyType  = KeyType::RSA_2048,
     ) {
-        if (empty($this->baseUrl)) {
-            $this->baseUrl = $staging ? self::STAGING_URL : self::PRODUCTION_URL;
-        }
     }
 
-    public function setLocalAccount(AcmeAccountInterface $account): self
+    public function getProvider(): AcmeProviderInterface
     {
-        $this->localAccount = $account;
-
-        return $this;
+        return $this->provider;
     }
 
     public function localAccount(): AcmeAccountInterface
     {
-        if ($this->localAccount === null) {
-            throw new LetsEncryptClientException('No account set.');
+        if ($this->storage !== null) {
+            return new StorageAccountAdapter($this->storage, $this->accountKeyType);
         }
 
-        return $this->localAccount;
+        throw new LetsEncryptClientException(
+            'No storage configured. Pass a StorageInterface to the Api constructor.'
+        );
     }
 
     public function directory(): Directory
@@ -77,16 +75,10 @@ class Api
         return new Certificate($this);
     }
 
-    public function getBaseUrl(): string
-    {
-        return $this->baseUrl;
-    }
-
     public function getHttpClient(): HttpClientInterface
     {
-        // Create a default client if none is set.
         if ($this->httpClient === null) {
-            $this->httpClient = new Client();
+            $this->httpClient = new Client(verifyTls: $this->provider->verifyTls());
         }
 
         return $this->httpClient;

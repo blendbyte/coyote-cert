@@ -3,10 +3,39 @@
 namespace CoyoteCert\Support;
 
 use OpenSSLAsymmetricKey;
+use CoyoteCert\Enums\KeyType;
 use CoyoteCert\Exceptions\LetsEncryptClientException;
 
 class OpenSsl
 {
+    /**
+     * Generate a key using a KeyType enum value.
+     * This is the preferred method going forward; generatePrivateKey() is legacy.
+     */
+    public static function generateKey(KeyType $type): OpenSSLAsymmetricKey
+    {
+        $config = $type->isRsa()
+            ? [
+                'private_key_type' => OPENSSL_KEYTYPE_RSA,
+                'private_key_bits' => $type->bits(),
+                'digest_alg'       => 'sha256',
+            ]
+            : [
+                'private_key_type' => OPENSSL_KEYTYPE_EC,
+                'curve_name'       => $type->curveName(),
+            ];
+
+        $key = openssl_pkey_new($config);
+
+        if ($key === false) {
+            throw new LetsEncryptClientException(
+                sprintf('Failed to generate %s key.', $type->value)
+            );
+        }
+
+        return $key;
+    }
+
     public static function generatePrivateKey(int $key_type = OPENSSL_KEYTYPE_RSA): OpenSSLAsymmetricKey
     {
         return match ($key_type) {

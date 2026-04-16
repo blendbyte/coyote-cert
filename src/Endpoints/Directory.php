@@ -11,7 +11,7 @@ class Directory extends Endpoint
     {
         $response = $this->client
             ->getHttpClient()
-            ->get($this->client->getBaseUrl() . '/directory');
+            ->get($this->client->getProvider()->getDirectoryUrl());
 
         if ($response->getHttpResponseCode() >= 400) {
             $this->logResponse('error', 'Cannot get directory', $response);

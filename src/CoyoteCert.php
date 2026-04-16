@@ -1,0 +1,292 @@
+<?php
+
+namespace CoyoteCert;
+
+use DateTimeImmutable;
+use Psr\Log\LoggerInterface;
+use CoyoteCert\Enums\AuthorizationChallengeEnum;
+use CoyoteCert\Enums\KeyType;
+use CoyoteCert\Exceptions\LetsEncryptClientException;
+use CoyoteCert\Interfaces\ChallengeHandlerInterface;
+use CoyoteCert\Provider\AcmeProviderInterface;
+use CoyoteCert\Storage\StoredCertificate;
+use CoyoteCert\Storage\StorageInterface;
+use CoyoteCert\Support\OpenSsl;
+
+/**
+ * High-level fluent entry point for certificate issuance and renewal.
+ *
+ * Usage:
+ *
+ *   $cert = CoyoteCert::with(new LetsEncrypt())
+ *       ->storage(new FilesystemStorage('/var/certs'))
+ *       ->domains(['example.com', 'www.example.com'])
+ *       ->challenge(new Http01Handler('/var/www/html'))
+ *       ->issue();
+ *
+ * Or to issue only when the certificate is close to expiry:
+ *
+ *   $cert = CoyoteCert::with(new LetsEncrypt())
+ *       ->storage(new FilesystemStorage('/var/certs'))
+ *       ->domains('example.com')
+ *       ->challenge(new Http01Handler('/var/www/html'))
+ *       ->issueOrRenew();
+ */
+class CoyoteCert
+{
+    private ?StorageInterface       $storage         = null;
+    private ?LoggerInterface        $logger          = null;
+    private array                   $domains         = [];
+    private ?ChallengeHandlerInterface $challengeHandler = null;
+    private KeyType                 $certKeyType     = KeyType::EC_P256;
+    private KeyType                 $accountKeyType  = KeyType::RSA_2048;
+    private bool                    $localTest       = true;
+
+    private function __construct(private readonly AcmeProviderInterface $provider)
+    {
+    }
+
+    // ── Builder ───────────────────────────────────────────────────────────────
+
+    public static function with(AcmeProviderInterface $provider): self
+    {
+        return new self($provider);
+    }
+
+    public function storage(StorageInterface $storage): self
+    {
+        $this->storage = $storage;
+
+        return $this;
+    }
+
+    public function logger(LoggerInterface $logger): self
+    {
+        $this->logger = $logger;
+
+        return $this;
+    }
+
+    /** @param string|string[] $domains */
+    public function domains(array|string $domains): self
+    {
+        $this->domains = is_array($domains) ? array_values($domains) : [$domains];
+
+        return $this;
+    }
+
+    public function challenge(ChallengeHandlerInterface $handler): self
+    {
+        $this->challengeHandler = $handler;
+
+        return $this;
+    }
+
+    /**
+     * Set the key type used for the domain certificate (default: EC_P256).
+     */
+    public function keyType(KeyType $type): self
+    {
+        $this->certKeyType = $type;
+
+        return $this;
+    }
+
+    /**
+     * Set the key type used for the ACME account key (default: RSA_2048).
+     */
+    public function accountKeyType(KeyType $type): self
+    {
+        $this->accountKeyType = $type;
+
+        return $this;
+    }
+
+    /**
+     * Disable the pre-flight HTTP/DNS self-check that runs before notifying the CA.
+     * Useful when the server is internal or challenge files are deployed elsewhere.
+     */
+    public function skipLocalTest(): self
+    {
+        $this->localTest = false;
+
+        return $this;
+    }
+
+    // ── Queries ───────────────────────────────────────────────────────────────
+
+    /**
+     * Returns true when no valid certificate is stored or it expires within $daysBeforeExpiry days.
+     */
+    public function needsRenewal(int $daysBeforeExpiry = 30): bool
+    {
+        if ($this->storage === null || empty($this->domains)) {
+            return true;
+        }
+
+        $cert = $this->storage->getCertificate($this->domains[0]);
+
+        return $cert === null || $cert->remainingDays() <= $daysBeforeExpiry;
+    }
+
+    // ── Terminal actions ──────────────────────────────────────────────────────
+
+    /**
+     * Issue a new certificate unconditionally.
+     */
+    public function issue(): StoredCertificate
+    {
+        $this->validate();
+
+        $api = new Api(
+            provider:       $this->provider,
+            storage:        $this->storage,
+            logger:         $this->logger,
+            accountKeyType: $this->accountKeyType,
+        );
+
+        // ── 1. Get or create ACME account ──────────────────────────────────
+        $account = $api->account()->exists()
+            ? $api->account()->get()
+            : $api->account()->create();
+
+        // ── 2. Create order ────────────────────────────────────────────────
+        $order = $api->order()->new($account, $this->domains);
+
+        // ── 3. Fetch authorization challenges ──────────────────────────────
+        $challenges = $api->domainValidation()->status($order);
+
+        // ── 4. Determine challenge type from the registered handler ────────
+        $challengeType = $this->detectChallengeType();
+
+        // ── 5. Compute validation data (token + key authorization) ─────────
+        $validationData = $api->domainValidation()->getValidationData($challenges, $challengeType);
+
+        // ── 6. Deploy challenge files/records for every domain ─────────────
+        foreach ($validationData as $item) {
+            [$token, $keyAuth] = $this->extractTokenAndKeyAuth($item, $challengeType);
+            $this->challengeHandler->deploy($item['identifier'], $token, $keyAuth);
+        }
+
+        // ── 7. Trigger ACME validation ─────────────────────────────────────
+        foreach ($challenges as $domainValidation) {
+            $api->domainValidation()->start($account, $domainValidation, $challengeType, $this->localTest);
+        }
+
+        // ── 8. Poll until all challenges pass (or fail) ────────────────────
+        $allPassed = $api->domainValidation()->allChallengesPassed($order);
+
+        // ── 9. Clean up challenge files/records ────────────────────────────
+        foreach ($validationData as $item) {
+            [$token] = $this->extractTokenAndKeyAuth($item, $challengeType);
+            $this->challengeHandler->cleanup($item['identifier'], $token);
+        }
+
+        if (!$allPassed) {
+            throw new LetsEncryptClientException(
+                'Domain validation failed — one or more challenges did not pass.'
+            );
+        }
+
+        // ── 10. Generate certificate private key ───────────────────────────
+        $certKey    = OpenSsl::generateKey($this->certKeyType);
+        $certKeyPem = OpenSsl::openSslKeyToString($certKey);
+
+        // ── 11. Generate CSR ───────────────────────────────────────────────
+        $csr = OpenSsl::generateCsr($this->domains, $certKey);
+
+        // ── 12. Finalize order ─────────────────────────────────────────────
+        if (!$api->order()->finalize($order, $csr)) {
+            throw new LetsEncryptClientException('Order finalization failed.');
+        }
+
+        // ── 13. Download certificate bundle ───────────────────────────────
+        $bundle = $api->certificate()->getBundle($order);
+
+        // ── 14. Parse expiry date from the DER-encoded certificate ─────────
+        $parsed    = openssl_x509_parse($bundle->certificate);
+        $expiresAt = isset($parsed['validTo_time_t'])
+            ? (new DateTimeImmutable())->setTimestamp((int) $parsed['validTo_time_t'])
+            : new DateTimeImmutable('+90 days');
+
+        // ── 15. Build and persist the stored certificate ───────────────────
+        $stored = new StoredCertificate(
+            certificate: $bundle->certificate,
+            privateKey:  $certKeyPem,
+            fullchain:   $bundle->fullchain,
+            caBundle:    $bundle->caBundle,
+            issuedAt:    new DateTimeImmutable(),
+            expiresAt:   $expiresAt,
+            domains:     $this->domains,
+        );
+
+        if ($this->storage !== null) {
+            $this->storage->saveCertificate($this->domains[0], $stored);
+        }
+
+        return $stored;
+    }
+
+    /**
+     * Alias for issue() — forces a fresh certificate regardless of expiry.
+     */
+    public function renew(): StoredCertificate
+    {
+        return $this->issue();
+    }
+
+    /**
+     * Issue only when the certificate is absent or expires within $daysBeforeExpiry days.
+     * Returns the existing certificate if it is still valid.
+     */
+    public function issueOrRenew(int $daysBeforeExpiry = 30): StoredCertificate
+    {
+        if (!$this->needsRenewal($daysBeforeExpiry)) {
+            /** @var StoredCertificate $cert — guaranteed non-null when needsRenewal() is false */
+            return $this->storage->getCertificate($this->domains[0]);
+        }
+
+        return $this->issue();
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    private function validate(): void
+    {
+        if (empty($this->domains)) {
+            throw new LetsEncryptClientException(
+                'No domains configured. Call ->domains() before issuing a certificate.'
+            );
+        }
+
+        if ($this->challengeHandler === null) {
+            throw new LetsEncryptClientException(
+                'No challenge handler configured. Call ->challenge() before issuing a certificate.'
+            );
+        }
+    }
+
+    private function detectChallengeType(): AuthorizationChallengeEnum
+    {
+        foreach (AuthorizationChallengeEnum::cases() as $type) {
+            if ($this->challengeHandler->supports($type)) {
+                return $type;
+            }
+        }
+
+        throw new LetsEncryptClientException(
+            'The configured challenge handler does not support any known challenge type.'
+        );
+    }
+
+    /**
+     * Returns [token, keyAuthorization] from a getValidationData() item.
+     */
+    private function extractTokenAndKeyAuth(array $item, AuthorizationChallengeEnum $type): array
+    {
+        return match ($type) {
+            AuthorizationChallengeEnum::HTTP => [$item['filename'], $item['content']],
+            AuthorizationChallengeEnum::DNS  => [$item['name'],     $item['value']],
+        };
+    }
+}

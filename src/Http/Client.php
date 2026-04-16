@@ -7,8 +7,10 @@ use CoyoteCert\Interfaces\HttpClientInterface;
 
 class Client implements HttpClientInterface
 {
-    public function __construct(private readonly int $timeout = 10)
-    {
+    public function __construct(
+        private readonly int  $timeout   = 10,
+        private readonly bool $verifyTls = true,
+    ) {
     }
 
     public function head(string $url): Response
@@ -105,10 +107,10 @@ class Client implements HttpClientInterface
             'Accept: application/json',
         ], $headers));
 
-        curl_setopt($curlHandle, CURLOPT_USERAGENT, 'rogierw/rw-acme-client');
+        curl_setopt($curlHandle, CURLOPT_USERAGENT, 'blendbyte/coyote-cert');
         curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curlHandle, CURLOPT_TIMEOUT, $this->timeout);
-        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($curlHandle, CURLOPT_SSL_VERIFYPEER, $this->verifyTls);
         curl_setopt($curlHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_0);
         curl_setopt($curlHandle, CURLOPT_ENCODING, '');
         curl_setopt($curlHandle, CURLOPT_HEADER, true);

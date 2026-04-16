@@ -23,7 +23,7 @@ readonly class AccountData
     {
         $url = trim($response->getHeader('location', ''));
 
-        return self::fromBody($url, $response->getBody());
+        return self::fromBody($url, $response->jsonBody());
     }
 
     /**

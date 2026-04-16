@@ -21,7 +21,7 @@ readonly class CertificateBundleData
 
         if (preg_match_all(
             '~(-----BEGIN\sCERTIFICATE-----[\s\S]+?-----END\sCERTIFICATE-----)~i',
-            $response->getBody(),
+            $response->rawBody(),
             $matches
         )) {
             $certificate = $matches[0][0];

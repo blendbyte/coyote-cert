@@ -3,6 +3,7 @@
 namespace CoyoteCert\Endpoints;
 
 use CoyoteCert\Api;
+use CoyoteCert\Exceptions\AcmeException;
 use CoyoteCert\Http\Response;
 use CoyoteCert\Support\KeyId;
 
@@ -47,8 +48,15 @@ abstract class Endpoint
     protected function isBadNonce(Response $response): bool
     {
         return $response->getHttpResponseCode() === 400
-            && is_array($response->getBody())
-            && ($response->getBody()['type'] ?? '') === 'urn:ietf:params:acme:error:badNonce';
+            && ($response->jsonBody()['type'] ?? '') === 'urn:ietf:params:acme:error:badNonce';
+    }
+
+    protected function throwError(Response $response, string $defaultMessage): never
+    {
+        $message = $response->jsonBody()['detail'] ?? $defaultMessage;
+        $this->logResponse('error', $message, $response);
+
+        throw new AcmeException($message);
     }
 
     protected function getAccountPrivateKey(): string

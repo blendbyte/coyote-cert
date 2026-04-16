@@ -121,7 +121,7 @@ it('get sends a GET request and decodes JSON body', function () {
     $adapter  = makeAdapter(body: '{"status":"valid"}');
     $response = $adapter->get('https://acme.example.com/dir');
 
-    expect($response->getBody())->toBe(['status' => 'valid']);
+    expect($response->jsonBody())->toBe(['status' => 'valid']);
     expect($response->getHttpResponseCode())->toBe(200);
 });
 
@@ -155,7 +155,7 @@ it('post sends a POST with JSON body', function () {
     expect($client->lastRequest->getMethod())->toBe('POST');
     expect($client->lastRequest->getHeaderLine('Content-Type'))->toBe('application/jose+json');
     expect($response->getHttpResponseCode())->toBe(201);
-    expect($response->getBody())->toBe(['id' => 'abc']);
+    expect($response->jsonBody())->toBe(['id' => 'abc']);
 });
 
 it('post forwards custom headers', function () {
@@ -172,7 +172,7 @@ it('response with non-JSON body is kept as string', function () {
     $adapter  = makeAdapter(body: 'not-json-at-all');
     $response = $adapter->get('https://example.com');
 
-    expect($response->getBody())->toBe('not-json-at-all');
+    expect($response->rawBody())->toBe('not-json-at-all');
 });
 
 it('response headers are lowercased', function () {

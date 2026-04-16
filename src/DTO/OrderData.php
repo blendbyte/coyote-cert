@@ -35,13 +35,13 @@ class OrderData
         return new self(
             id: Url::extractId($url),
             url: $url,
-            status: $response->getBody()['status'],
-            expires: $response->getBody()['expires'],
-            identifiers: $response->getBody()['identifiers'],
-            domainValidationUrls: $response->getBody()['authorizations'],
-            finalizeUrl: $response->getBody()['finalize'],
+            status: $response->jsonBody()['status'],
+            expires: $response->jsonBody()['expires'],
+            identifiers: $response->jsonBody()['identifiers'],
+            domainValidationUrls: $response->jsonBody()['authorizations'],
+            finalizeUrl: $response->jsonBody()['finalize'],
             accountUrl: $accountUrl,
-            certificateUrl: Arr::get($response->getBody(), 'certificate'),
+            certificateUrl: Arr::get($response->jsonBody(), 'certificate'),
         );
     }
 

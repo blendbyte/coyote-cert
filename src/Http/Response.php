@@ -32,6 +32,21 @@ class Response
         return $this->body;
     }
 
+    public function jsonBody(): array
+    {
+        return is_array($this->body) ? $this->body : [];
+    }
+
+    public function rawBody(): string
+    {
+        return is_string($this->body) ? $this->body : '';
+    }
+
+    public function isJson(): bool
+    {
+        return is_array($this->body);
+    }
+
     public function getRequestedUrl(): string
     {
         return $this->requestedUrl;

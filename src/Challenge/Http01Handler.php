@@ -3,7 +3,7 @@
 namespace CoyoteCert\Challenge;
 
 use CoyoteCert\Enums\AuthorizationChallengeEnum;
-use CoyoteCert\Exceptions\AcmeException;
+use CoyoteCert\Exceptions\ChallengeException;
 use CoyoteCert\Interfaces\ChallengeHandlerInterface;
 
 /**
@@ -33,7 +33,7 @@ class Http01Handler implements ChallengeHandlerInterface
         $dir = $this->challengeDir();
 
         if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-            throw new AcmeException(
+            throw new ChallengeException(
                 sprintf('Could not create challenge directory "%s".', $dir)
             );
         }
@@ -41,7 +41,7 @@ class Http01Handler implements ChallengeHandlerInterface
         $path = $dir . $token;
 
         if (file_put_contents($path, $keyAuthorization) === false) {
-            throw new AcmeException(
+            throw new ChallengeException(
                 sprintf('Could not write challenge file "%s".', $path)
             );
         }

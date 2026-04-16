@@ -1,5 +1,6 @@
 <?php
 
+use CoyoteCert\Enums\KeyType;
 use CoyoteCert\Exceptions\StorageException;
 use CoyoteCert\Support\LocalFileAccount;
 
@@ -22,25 +23,24 @@ it('exists returns false when no keys are stored', function () {
 });
 
 it('generateNewKeys creates private and public key files', function () {
-    $result = $this->account->generateNewKeys('RSA');
-
-    expect($result)->toBeTrue();
+    expect($this->account->generateNewKeys())->toBeTrue();
     expect($this->account->exists())->toBeTrue();
 });
 
+it('generateNewKeys creates an EC key when KeyType::EC_P256 is passed', function () {
+    expect($this->account->generateNewKeys(KeyType::EC_P256))->toBeTrue();
+    expect($this->account->exists())->toBeTrue();
+    expect($this->account->getPrivateKey())->toContain('PRIVATE KEY');
+});
+
 it('getPrivateKey returns a PEM string after key generation', function () {
-    $this->account->generateNewKeys('RSA');
+    $this->account->generateNewKeys();
     expect($this->account->getPrivateKey())->toContain('PRIVATE KEY');
 });
 
 it('getPublicKey returns a PEM string after key generation', function () {
-    $this->account->generateNewKeys('RSA');
+    $this->account->generateNewKeys();
     expect($this->account->getPublicKey())->toContain('PUBLIC KEY');
-});
-
-it('generateNewKeys throws for unsupported key type', function () {
-    expect(fn () => $this->account->generateNewKeys('EC'))
-        ->toThrow(StorageException::class);
 });
 
 it('getPrivateKey throws when no key has been generated', function () {
@@ -55,7 +55,7 @@ it('getPublicKey throws when no key has been generated', function () {
 
 it('trailing slash is normalised in the path', function () {
     $account = new LocalFileAccount($this->dir . '/');
-    $account->generateNewKeys('RSA');
+    $account->generateNewKeys();
     expect($account->exists())->toBeTrue();
 });
 
@@ -68,7 +68,7 @@ it('generateNewKeys throws when the directory cannot be created', function () {
     // Create a FILE at the path so mkdir inside it fails
     file_put_contents($this->dir, 'not-a-dir');
 
-    expect(fn () => $this->account->generateNewKeys('RSA'))
+    expect(fn () => $this->account->generateNewKeys())
         ->toThrow(StorageException::class, 'was not created');
 
     @unlink($this->dir);

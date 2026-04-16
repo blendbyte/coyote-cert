@@ -2,7 +2,7 @@
 
 use CoyoteCert\Challenge\Http01Handler;
 use CoyoteCert\Enums\AuthorizationChallengeEnum;
-use CoyoteCert\Exceptions\AcmeException;
+use CoyoteCert\Exceptions\ChallengeException;
 
 beforeEach(function () {
     $this->webroot = sys_get_temp_dir() . '/coyote-http01-' . uniqid();
@@ -76,7 +76,7 @@ it('deploy throws when the challenge directory cannot be created', function () {
     file_put_contents($this->webroot, 'not-a-dir');
 
     expect(fn () => $this->handler->deploy('example.com', 'tok', 'content'))
-        ->toThrow(AcmeException::class, 'Could not create challenge directory');
+        ->toThrow(ChallengeException::class, 'Could not create challenge directory');
 
     @unlink($this->webroot);
 });
@@ -87,7 +87,7 @@ it('deploy throws when file_put_contents fails', function () {
     mkdir($tokenPath, 0755, true);
 
     expect(fn () => $this->handler->deploy('example.com', 'mytoken', 'content'))
-        ->toThrow(AcmeException::class, 'Could not write challenge file');
+        ->toThrow(ChallengeException::class, 'Could not write challenge file');
 
     @rmdir($tokenPath);
 });

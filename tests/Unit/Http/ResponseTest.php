@@ -68,3 +68,24 @@ it('getHttpResponseCode returns the status code', function () {
     expect(makeResponse(status: 201)->getHttpResponseCode())->toBe(201);
     expect(makeResponse(status: null)->getHttpResponseCode())->toBeNull();
 });
+
+it('jsonBody returns the array when body is an array', function () {
+    expect(makeResponse(body: ['status' => 'valid'])->jsonBody())->toBe(['status' => 'valid']);
+});
+
+it('jsonBody returns empty array when body is a string', function () {
+    expect(makeResponse(body: 'raw-pem')->jsonBody())->toBe([]);
+});
+
+it('rawBody returns the string when body is a string', function () {
+    expect(makeResponse(body: 'raw-pem')->rawBody())->toBe('raw-pem');
+});
+
+it('rawBody returns empty string when body is an array', function () {
+    expect(makeResponse(body: ['key' => 'val'])->rawBody())->toBe('');
+});
+
+it('isJson returns true for array body and false for string body', function () {
+    expect(makeResponse(body: ['a' => 1])->isJson())->toBeTrue();
+    expect(makeResponse(body: 'text')->isJson())->toBeFalse();
+});

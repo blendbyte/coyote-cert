@@ -5,6 +5,7 @@ namespace CoyoteCert\Support;
 use CoyoteCert\Enums\KeyType;
 use CoyoteCert\Exceptions\StorageException;
 use CoyoteCert\Interfaces\AcmeAccountInterface;
+use CoyoteCert\Support\OpenSsl;
 
 class LocalFileAccount implements AcmeAccountInterface
 {
@@ -37,25 +38,23 @@ class LocalFileAccount implements AcmeAccountInterface
         return false;
     }
 
-    public function generateNewKeys(string $keyType = 'RSA'): bool
+    public function generateNewKeys(KeyType $keyType = KeyType::EC_P256): bool
     {
-        if ($keyType !== 'RSA') {
-            throw new StorageException('Key type is not supported.');
+        $dir = rtrim($this->accountKeysPath, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+
+        if (!is_dir($dir) && !mkdir($dir) && !is_dir($dir)) {
+            throw new StorageException(sprintf('Directory "%s" was not created', $dir));
         }
 
-        $concurrentDirectory = rtrim($this->accountKeysPath, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+        $key       = OpenSsl::generateKey($keyType);
+        $privateKey = OpenSsl::openSslKeyToString($key);
+        $publicKey  = openssl_pkey_get_details($key)['key'];
 
-        if (!is_dir($concurrentDirectory) && !mkdir($concurrentDirectory) && !is_dir($concurrentDirectory)) {
-            throw new StorageException(sprintf('Directory "%s" was not created', $concurrentDirectory));
-        }
+        $privateKeyPath = $dir.$this->getKeyName('private');
+        $publicKeyPath  = $dir.$this->getKeyName('public');
 
-        $keys = CryptRSA::generate();
-
-        $privateKeyPath = $concurrentDirectory.$this->getKeyName('private');
-        $publicKeyPath = $concurrentDirectory.$this->getKeyName('public');
-
-        if (file_put_contents($privateKeyPath, $keys['privateKey']) === false ||
-            file_put_contents($publicKeyPath, $keys['publicKey']) === false) {
+        if (file_put_contents($privateKeyPath, $privateKey) === false ||
+            file_put_contents($publicKeyPath, $publicKey) === false) {
             throw new StorageException('Failed to write keys to files.');
         }
 

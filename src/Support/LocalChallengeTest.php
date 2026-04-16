@@ -19,13 +19,7 @@ class LocalChallengeTest
     ): void {
         $response = $httpClient->get($domain . '/.well-known/acme-challenge/' . $token, maxRedirects: 1);
 
-        $body = $response->getBody();
-
-        if (is_array($body)) {
-            $body = json_encode($body, JSON_THROW_ON_ERROR);
-        }
-
-        if (trim($body) === $keyAuthorization) {
+        if (trim($response->rawBody()) === $keyAuthorization) {
             return;
         }
 

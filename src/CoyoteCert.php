@@ -45,7 +45,7 @@ class CoyoteCert
     private array                      $domains          = [];
     private ?ChallengeHandlerInterface $challengeHandler = null;
     private KeyType                    $certKeyType      = KeyType::EC_P256;
-    private KeyType                    $accountKeyType   = KeyType::RSA_2048;
+    private KeyType                    $accountKeyType   = KeyType::EC_P256;
     private bool                       $localTest        = true;
 
     private function __construct(private readonly AcmeProviderInterface $provider)
@@ -133,7 +133,7 @@ class CoyoteCert
     }
 
     /**
-     * Set the key type used for the ACME account key (default: RSA_2048).
+     * Set the key type used for the ACME account key (default: EC_P256).
      */
     public function accountKeyType(KeyType $type): self
     {

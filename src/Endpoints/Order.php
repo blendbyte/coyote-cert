@@ -77,9 +77,9 @@ class Order extends Endpoint
         $this->logResponse('error', 'Getting order failed; bad response code.', $response);
 
         match ($response->getHttpResponseCode()) {
-            404 => throw new OrderNotFoundException($response->getBody()['detail'] ?? 'Order cannot be found.'),
-            429 => throw new RateLimitException($response->getBody()['detail'] ?? 'Too many requests.'),
-            default => throw new AcmeException($response->getBody()['detail'] ?? 'Unknown error.'),
+            404 => throw new OrderNotFoundException($response->jsonBody()['detail'] ?? 'Order cannot be found.'),
+            429 => throw new RateLimitException($response->jsonBody()['detail'] ?? 'Too many requests.'),
+            default => throw new AcmeException($response->jsonBody()['detail'] ?? 'Unknown error.'),
         };
     }
 
@@ -94,7 +94,7 @@ class Order extends Endpoint
     {
         for ($i = 0; $i < $maxAttempts; $i++) {
             $response = $this->postSigned($order->url, $order->accountUrl);
-            $body     = $response->getBody();
+            $body     = $response->jsonBody();
 
             if (($body['status'] ?? '') === 'valid') {
                 return OrderData::fromResponse($response, $order->accountUrl);
@@ -130,7 +130,7 @@ class Order extends Endpoint
         $response = $this->postSigned($orderData->finalizeUrl, $orderData->accountUrl, compact('csr'));
 
         if ($response->getHttpResponseCode() === 200) {
-            $body = $response->getBody();
+            $body = $response->jsonBody();
 
             if (isset($body['certificate'])) {
                 $orderData->setCertificateUrl($body['certificate']);

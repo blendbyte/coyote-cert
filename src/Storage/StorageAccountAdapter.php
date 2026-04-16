@@ -18,7 +18,7 @@ class StorageAccountAdapter implements AcmeAccountInterface
 {
     public function __construct(
         private readonly StorageInterface $storage,
-        private readonly KeyType          $keyType = KeyType::RSA_2048,
+        private readonly KeyType          $keyType = KeyType::EC_P256,
     ) {
     }
 
@@ -40,7 +40,7 @@ class StorageAccountAdapter implements AcmeAccountInterface
         return $this->storage->hasAccountKey();
     }
 
-    public function generateNewKeys(string $keyType = 'RSA'): bool
+    public function generateNewKeys(KeyType $keyType = KeyType::EC_P256): bool
     {
         $key = OpenSsl::generateKey($this->keyType);
         $pem = OpenSsl::openSslKeyToString($key);

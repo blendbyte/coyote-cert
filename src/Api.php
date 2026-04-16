@@ -26,7 +26,7 @@ class Api
         private readonly ?StorageInterface     $storage         = null,
         private ?LoggerInterface               $logger          = null,
         private ?HttpClientInterface           $httpClient      = null,
-        private readonly KeyType               $accountKeyType  = KeyType::RSA_2048,
+        private readonly KeyType               $accountKeyType  = KeyType::EC_P256,
     ) {
     }
 

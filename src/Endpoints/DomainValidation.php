@@ -147,7 +147,7 @@ class DomainValidation extends Endpoint
         $response = $this->postSigned($challengeData['url'], $accountData->url, []);
 
         if ($response->getHttpResponseCode() >= 400) {
-            $this->logResponse('error', $response->getBody()['detail'] ?? 'Unknown error', $response);
+            $this->logResponse('error', $response->jsonBody()['detail'] ?? 'Unknown error', $response);
         }
 
         return $response;

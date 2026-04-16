@@ -23,7 +23,7 @@ class RenewalInfo extends Endpoint
             return null;
         }
 
-        $body = $response->getBody();
+        $body = $response->jsonBody();
 
         return new RenewalWindow(
             start:          new DateTimeImmutable($body['suggestedWindow']['start']),

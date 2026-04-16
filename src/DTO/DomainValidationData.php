@@ -21,7 +21,7 @@ readonly class DomainValidationData
 
     public static function fromResponse(Response $response): DomainValidationData
     {
-        $body       = $response->getBody();
+        $body       = $response->jsonBody();
         $challenges = $body['challenges'];
 
         return new self(

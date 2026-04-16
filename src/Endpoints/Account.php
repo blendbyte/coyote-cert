@@ -84,7 +84,7 @@ class Account extends Endpoint
         $response = $this->postSigned($account->url, $account->url, ['contact' => $contact]);
 
         if ($response->getHttpResponseCode() === 200) {
-            return AccountData::fromBody($account->url, $response->getBody());
+            return AccountData::fromBody($account->url, $response->jsonBody());
         }
 
         $this->throwError($response, 'Updating account failed');
@@ -99,7 +99,7 @@ class Account extends Endpoint
         $response = $this->postSigned($account->url, $account->url, ['status' => 'deactivated']);
 
         if ($response->getHttpResponseCode() === 200) {
-            return AccountData::fromBody($account->url, $response->getBody());
+            return AccountData::fromBody($account->url, $response->jsonBody());
         }
 
         $this->throwError($response, 'Deactivating account failed');
@@ -156,7 +156,7 @@ class Account extends Endpoint
         if ($response->getHttpResponseCode() === 200) {
             $this->client->localAccount()->savePrivateKey($newKeyPem, $keyType);
 
-            return AccountData::fromBody($account->url, $response->getBody());
+            return AccountData::fromBody($account->url, $response->jsonBody());
         }
 
         $this->throwError($response, 'Key rollover failed');
@@ -255,11 +255,4 @@ class Account extends Endpoint
         return $response;
     }
 
-    protected function throwError(Response $response, string $defaultMessage): never
-    {
-        $message = $response->getBody()['detail'] ?? $defaultMessage;
-        $this->logResponse('error', $message, $response);
-
-        throw new AcmeException($message);
-    }
 }

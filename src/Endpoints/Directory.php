@@ -24,17 +24,17 @@ class Directory extends Endpoint
 
     public function newNonce(): string
     {
-        return $this->all()->getBody()['newNonce'];
+        return $this->all()->jsonBody()['newNonce'];
     }
 
     public function newAccount(): string
     {
-        return $this->all()->getBody()['newAccount'];
+        return $this->all()->jsonBody()['newAccount'];
     }
 
     public function newOrder(): string
     {
-        return $this->all()->getBody()['newOrder'];
+        return $this->all()->jsonBody()['newOrder'];
     }
 
     public function getOrder(): string
@@ -46,16 +46,16 @@ class Directory extends Endpoint
 
     public function revoke(): string
     {
-        return $this->all()->getBody()['revokeCert'];
+        return $this->all()->jsonBody()['revokeCert'];
     }
 
     public function renewalInfo(): ?string
     {
-        return $this->all()->getBody()['renewalInfo'] ?? null;
+        return $this->all()->jsonBody()['renewalInfo'] ?? null;
     }
 
     public function keyChange(): string
     {
-        return $this->all()->getBody()['keyChange'];
+        return $this->all()->jsonBody()['keyChange'];
     }
 }

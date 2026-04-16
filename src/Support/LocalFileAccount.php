@@ -50,10 +50,6 @@ class LocalFileAccount implements AcmeAccountInterface
 
         $keys = CryptRSA::generate();
 
-        if (!isset($keys['privateKey'], $keys['publicKey'])) {
-            throw new LetsEncryptClientException('Key generation failed.');
-        }
-
         $privateKeyPath = $concurrentDirectory.$this->getKeyName('private');
         $publicKeyPath = $concurrentDirectory.$this->getKeyName('public');
 

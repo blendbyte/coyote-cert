@@ -1,7 +1,7 @@
 {
   "name": "blendbyte/coyote-cert",
-  "description": "ACME v2 (Let's Encrypt) certificate client library for PHP.",
-  "license": "MIT",
+"type": "library",
+"license": "MIT",
   "require": {
     "php": "^8.3",
     "ext-curl": "*",
@@ -9,10 +9,12 @@
     "ext-mbstring": "*",
     "ext-openssl": "*",
     "psr/log": "^3.0",
-    "spatie/dns": "^2.5"
+    "spatie/dns": "^2.7"
   },
   "require-dev": {
-    "larapack/dd": "^1.0"
+    "pestphp/pest": "^4.0",
+    "phpstan/phpstan": "^2.1",
+    "phpunit/phpunit": "^12.5"
   },
   "autoload": {
     "psr-4": {
@@ -22,7 +24,20 @@
       "src/Support/helpers.php"
     ]
   },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "vendor/bin/pest",
+    "test:coverage": "vendor/bin/pest --coverage",
+    "analyse": "vendor/bin/phpstan analyse --memory-limit=512M"
+  },
   "config": {
-    "sort-packages": true
+    "sort-packages": true,
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
   }
 }

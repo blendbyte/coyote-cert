@@ -39,7 +39,7 @@ class Client implements HttpClientInterface
         int $retries = 3
     ): Response {
         $allHeaders = array_merge([
-            'Content-Type: ' . ($httpVerb === 'post') ? 'application/jose+json' : 'application/json',
+            'Content-Type: ' . (($httpVerb === 'post') ? 'application/jose+json' : 'application/json'),
         ], $headers);
 
         $curlHandle = $this->getCurlHandle($fullUrl, $allHeaders, $maxRedirects);

@@ -242,8 +242,9 @@ class CoyoteCert
     public function issueOrRenew(int $daysBeforeExpiry = 30): StoredCertificate
     {
         if (!$this->needsRenewal($daysBeforeExpiry)) {
-            /** @var StoredCertificate $cert — guaranteed non-null when needsRenewal() is false */
-            return $this->storage->getCertificate($this->domains[0]);
+            // needsRenewal() returns false only when storage is set and the cert exists.
+            return $this->storage->getCertificate($this->domains[0])
+                ?? throw new LetsEncryptClientException('Certificate unexpectedly missing from storage.');
         }
 
         return $this->issue();

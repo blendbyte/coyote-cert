@@ -4,7 +4,7 @@ use CoyoteCert\Support\JsonWebKey;
 use CoyoteCert\Support\Thumbprint;
 
 it('make returns a non-empty base64url string for an RSA key', function () {
-    $pem    = rsaKeyPem(); // defined in JsonWebKeyTest.php loaded globally by Pest
+    $pem    = rsaKeyPem();
     $result = Thumbprint::make($pem);
 
     expect($result)->toBeString()->not->toBeEmpty();

@@ -31,7 +31,7 @@ class LocalChallengeTest
 
         throw DomainValidationException::localHttpChallengeTestFailed(
             $domain,
-            $response->getHttpResponseCode()
+            (string) $response->getHttpResponseCode()
         );
     }
 

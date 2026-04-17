@@ -66,8 +66,12 @@ class LocalChallengeTest
     }
 
     /** @param array<mixed> $records */
-    private static function validateCnameRecords(array $records, string $value): bool
+    private static function validateCnameRecords(array $records, string $value, int $depth = 0): bool
     {
+        if ($depth >= 10) {
+            return false;
+        }
+
         foreach ($records as $record) {
             $nameserver = self::getNameserver($record->target());
             $txtRecords = self::getRecords($nameserver, $record->target(), DNS_TXT);
@@ -78,7 +82,7 @@ class LocalChallengeTest
             // If this is another CNAME, follow it.
             $cnameRecords = self::getRecords($nameserver, $record->target(), DNS_CNAME);
             if (!empty($cnameRecords)) {
-                if (self::validateCnameRecords($cnameRecords, $value)) {
+                if (self::validateCnameRecords($cnameRecords, $value, $depth + 1)) {
                     return true;
                 }
             }

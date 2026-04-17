@@ -1,0 +1,90 @@
+name: Bug report
+description: Something isn't working correctly during certificate issuance, renewal, revocation, or storage.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as you can — the more context you provide, the faster it can be diagnosed.
+
+  - type: dropdown
+    id: ca
+    attributes:
+      label: Certificate Authority
+      description: Which CA were you requesting a certificate from?
+      options:
+        - Let's Encrypt (production)
+        - Let's Encrypt (staging)
+        - ZeroSSL
+        - Google Trust Services
+        - Buypass Go SSL (production)
+        - Buypass Go SSL (staging)
+        - SSL.com
+        - Custom / other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: challenge
+    attributes:
+      label: Challenge type
+      options:
+        - http-01
+        - dns-01
+        - dns-persist-01
+        - Not applicable (revocation / storage / other)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Storage backend
+      options:
+        - FilesystemStorage
+        - DatabaseStorage (PDO)
+        - InMemoryStorage
+        - Custom implementation
+        - Not applicable
+    validations:
+      required: true
+
+  - type: input
+    id: php_version
+    attributes:
+      label: PHP version
+      placeholder: "e.g. 8.3.12"
+    validations:
+      required: true
+
+  - type: input
+    id: package_version
+    attributes:
+      label: CoyoteCert version
+      placeholder: "e.g. 1.2.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Minimal reproduction
+      description: The smallest code snippet that triggers the issue. Remove anything unrelated.
+      render: php
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include the full exception message, stack trace, or unexpected output.
+    validations:
+      required: true

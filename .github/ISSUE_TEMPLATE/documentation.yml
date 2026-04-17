@@ -1,0 +1,43 @@
+name: Documentation
+description: Something in the README, docblocks, or examples is wrong, missing, or unclear.
+labels: ["documentation"]
+body:
+  - type: dropdown
+    id: location
+    attributes:
+      label: Where is the issue?
+      options:
+        - README — quick start / installation
+        - README — provider documentation
+        - README — challenge handlers
+        - README — storage backends
+        - README — issuance / renewal
+        - README — revocation
+        - README — StoredCertificate reference
+        - README — low-level API
+        - README — other section
+        - Source docblocks / inline comments
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What is wrong or missing?
+      description: Quote the specific passage if relevant, or describe what you were looking for and couldn't find.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix or addition
+      description: How should it read, or what should be added? A draft is welcome but not required.
+
+  - type: checkboxes
+    id: pr
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to open a pull request for this

@@ -29,6 +29,10 @@ Keys default to EC P-256, which modern CAs recommend for speed and compact size.
 
 Built-in providers for Let's Encrypt, ZeroSSL, Google Trust Services, SSL.com, and Buypass, with full EAB support. ZeroSSL auto-provisions EAB credentials from your API key, so no copy-pasting tokens. A `CustomProvider` handles any other ACME-compliant CA.
 
+### CLI included
+
+`coyote issue` and `coyote status` ship in the same package. One command to issue or renew a certificate; a second to inspect what's stored. Works as a drop-in for certbot and acme.sh in PHP stacks, with full support for every built-in provider, key type, and storage path — and a cron-friendly exit code so renewals fit into any deployment pipeline.
+
 ### dns-persist-01: renewals without DNS propagation delays
 
 CoyoteCert introduces `dns-persist-01`: deploy the TXT record once, leave it in place, and every subsequent renewal validates against it immediately. No DNS propagation wait on every 90-day cycle.
@@ -118,8 +122,111 @@ echo $cert->caBundle;    // PEM intermediate chain
 
 ---
 
+## CLI
+
+CoyoteCert ships with a `coyote` CLI for issuing and inspecting certificates without writing PHP. It wraps the same builder API as the library.
+
+### Install globally
+
+```bash
+composer global require blendbyte/coyotecert
+```
+
+Make sure `~/.composer/vendor/bin` (or `~/.config/composer/vendor/bin` on Linux) is on your `PATH`.
+
+### `coyote issue`
+
+Issue or renew a certificate using HTTP-01 challenge validation.
+
+```bash
+coyote issue \
+  --domain example.com \
+  --domain www.example.com \
+  --webroot /var/www/html \
+  --email admin@example.com \
+  --provider letsencrypt \
+  --storage /etc/certs
+```
+
+If a valid certificate already exists and expiry is more than `--days` away, the command exits cleanly with no network requests. Pass `--force` to issue regardless.
+
+**Options**
+
+| Option | Short | Default | Description |
+|---|---|---|---|
+| `--domain` | `-d` | — | Domain to include on the certificate. Repeat for SANs: `--domain example.com --domain www.example.com` |
+| `--email` | `-e` | — | Contact email registered with the ACME account |
+| `--webroot` | `-w` | — | Webroot path for HTTP-01. CoyoteCert writes tokens under `.well-known/acme-challenge/` |
+| `--provider` | `-p` | `letsencrypt` | CA to use. See provider table below |
+| `--storage` | `-s` | `./certs` | Directory to read/write certificates and account keys |
+| `--days` | — | `30` | Renew when fewer than this many days remain before expiry |
+| `--key-type` | — | `ec256` | Certificate key type: `ec256`, `ec384`, `rsa2048`, `rsa4096` |
+| `--force` | `-f` | — | Issue a fresh certificate even if the current one is still valid |
+| `--skip-caa` | — | — | Skip CAA DNS pre-check |
+| `--skip-local-test` | — | — | Skip the HTTP pre-flight self-test |
+| `--zerossl-key` | — | — | ZeroSSL API key for automatic EAB provisioning |
+| `--eab-kid` | — | — | EAB key ID (Google Trust Services, SSL.com, or pre-provisioned ZeroSSL) |
+| `--eab-hmac` | — | — | EAB HMAC key |
+
+**Providers**
+
+| `--provider` value | CA |
+|---|---|
+| `letsencrypt`, `le` | Let's Encrypt (production) |
+| `letsencrypt-staging`, `le-staging`, `staging` | Let's Encrypt (staging) |
+| `zerossl` | ZeroSSL (use `--zerossl-key` or `--eab-kid`/`--eab-hmac`) |
+| `google`, `gts` | Google Trust Services (requires `--eab-kid` and `--eab-hmac`) |
+| `buypass` | Buypass Go SSL (production) |
+| `buypass-staging` | Buypass Go SSL (staging) |
+| `sslcom`, `ssl.com` | SSL.com (requires `--eab-kid` and `--eab-hmac`) |
+
+### `coyote status`
+
+Inspect a stored certificate.
+
+```bash
+coyote status --domain example.com --storage /etc/certs
+```
+
+| Option | Short | Default | Description |
+|---|---|---|---|
+| `--domain` | `-d` | — | Primary domain of the certificate to inspect |
+| `--storage` | `-s` | `./certs` | Directory where certificates are stored |
+| `--key-type` | — | `ec256` | Key type to look up: `ec256`, `ec384`, `rsa2048`, `rsa4096` |
+
+The status line reflects time to expiry:
+
+| Status | Condition |
+|---|---|
+| `Valid` | More than 30 days remaining |
+| `Renewal due` | 7–30 days remaining |
+| `Expiring soon` | Fewer than 7 days remaining |
+| `Expired` | Certificate has passed its expiry date |
+
+### Cron renewal
+
+Add a daily cron job to keep certificates renewed automatically:
+
+```
+0 3 * * * coyote issue --domain example.com --webroot /var/www/html --storage /etc/certs --email admin@example.com
+```
+
+The command is idempotent — it does nothing until fewer than `--days` (default 30) remain, so running it daily is safe.
+
+### Help and version
+
+```bash
+coyote --help     # List available commands
+coyote --version  # Show version
+coyote issue --help   # Full option reference for the issue command
+coyote status --help  # Full option reference for the status command
+```
+
+---
+
 ## Table of contents
 
+- [CLI](#cli)
 - [Providers](#providers)
 - [Challenge handlers](#challenge-handlers)
 - [Storage backends](#storage-backends)

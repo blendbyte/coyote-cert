@@ -49,7 +49,7 @@ Filesystem with file locking, PDO (MySQL, PostgreSQL, SQLite) with dialect-aware
 
 Before asking the CA to validate a domain, CoyoteCert performs a local check — fetches the HTTP challenge token or looks up the DNS TXT record itself. Misconfigured web servers and DNS propagation delays are caught before they waste a rate-limit attempt.
 
-### 93 %+ test coverage with real CA integration tests
+### 94 %+ test coverage with real CA integration tests
 
 Every code path is unit-tested with mocked responses. The integration suite runs against a live [Pebble](https://github.com/letsencrypt/pebble) ACME test server in CI across PHP 8.3, 8.4, and 8.5. No mock-only false confidence.
 

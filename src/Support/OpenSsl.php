@@ -8,10 +8,6 @@ use CoyoteCert\Exceptions\CryptoException;
 
 class OpenSsl
 {
-    /**
-     * Generate a key using a KeyType enum value.
-     * This is the preferred method going forward; generatePrivateKey() is legacy.
-     */
     public static function generateKey(KeyType $type): OpenSSLAsymmetricKey
     {
         $config = $type->isRsa()
@@ -34,29 +30,6 @@ class OpenSsl
             throw new CryptoException(
                 sprintf('Failed to generate %s key.', $type->value)
             );
-        }
-
-        return $key;
-    }
-
-    public static function generatePrivateKey(int $key_type = OPENSSL_KEYTYPE_RSA): OpenSSLAsymmetricKey
-    {
-        $key = match ($key_type) {
-            OPENSSL_KEYTYPE_RSA => openssl_pkey_new([
-                'private_key_type' => OPENSSL_KEYTYPE_RSA,
-                'private_key_bits' => 2048,
-                'digest_alg' => 'sha256',
-            ]),
-            OPENSSL_KEYTYPE_EC => openssl_pkey_new([
-                'private_key_type' => OPENSSL_KEYTYPE_EC,
-                'private_key_bits' => 2048,
-                'curve_name' => 'prime256v1',
-            ]),
-            default => throw new CryptoException('Invalid keytype'),
-        };
-
-        if ($key === false) {
-            throw new CryptoException('Failed to generate private key.');
         }
 
         return $key;

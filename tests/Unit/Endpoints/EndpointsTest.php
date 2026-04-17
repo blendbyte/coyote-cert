@@ -532,14 +532,10 @@ it('Order::get() throws OrderNotFoundException on 404', function () {
     $storage = withKeyStorage();
 
     $mock = closureMock(
-        getHandler: fn ($url) => str_contains($url, 'directory')
-            ? new Response([], $url, 200, directoryBody())
+        getHandler:  fn ($url) => new Response([], $url, 200, directoryBody()),
+        postHandler: fn ($url) => str_contains($url, 'new-account')
+            ? new Response(['location' => 'https://acme.example/account/1'], $url, 200, accountBody())
             : new Response([], $url, 404, ['detail' => 'Order not found']),
-        postHandler: fn ($url) => new Response(
-            ['location' => 'https://acme.example/account/1'],
-            $url, 200,
-            accountBody()
-        ),
     );
 
     expect(fn () => makeEndpointApi($mock, $storage)->order()->get('missing'))
@@ -550,14 +546,10 @@ it('Order::get() throws RateLimitException on 429', function () {
     $storage = withKeyStorage();
 
     $mock = closureMock(
-        getHandler: fn ($url) => str_contains($url, 'directory')
-            ? new Response([], $url, 200, directoryBody())
+        getHandler:  fn ($url) => new Response([], $url, 200, directoryBody()),
+        postHandler: fn ($url) => str_contains($url, 'new-account')
+            ? new Response(['location' => 'https://acme.example/account/1'], $url, 200, accountBody())
             : new Response([], $url, 429, ['detail' => 'Too many requests']),
-        postHandler: fn ($url) => new Response(
-            ['location' => 'https://acme.example/account/1'],
-            $url, 200,
-            accountBody()
-        ),
     );
 
     expect(fn () => makeEndpointApi($mock, $storage)->order()->get('spam'))
@@ -568,14 +560,10 @@ it('Order::get() throws AcmeException on 500', function () {
     $storage = withKeyStorage();
 
     $mock = closureMock(
-        getHandler: fn ($url) => str_contains($url, 'directory')
-            ? new Response([], $url, 200, directoryBody())
+        getHandler:  fn ($url) => new Response([], $url, 200, directoryBody()),
+        postHandler: fn ($url) => str_contains($url, 'new-account')
+            ? new Response(['location' => 'https://acme.example/account/1'], $url, 200, accountBody())
             : new Response([], $url, 500, ['detail' => 'Internal error']),
-        postHandler: fn ($url) => new Response(
-            ['location' => 'https://acme.example/account/1'],
-            $url, 200,
-            accountBody()
-        ),
     );
 
     expect(fn () => makeEndpointApi($mock, $storage)->order()->get('fail'))
@@ -586,14 +574,10 @@ it('Order::get() returns OrderData on success', function () {
     $storage = withKeyStorage();
 
     $mock = closureMock(
-        getHandler: fn ($url) => str_contains($url, 'directory')
-            ? new Response([], $url, 200, directoryBody())
+        getHandler:  fn ($url) => new Response([], $url, 200, directoryBody()),
+        postHandler: fn ($url) => str_contains($url, 'new-account')
+            ? new Response(['location' => 'https://acme.example/account/1'], $url, 200, accountBody())
             : new Response([], $url, 200, orderBody('valid')),
-        postHandler: fn ($url) => new Response(
-            ['location' => 'https://acme.example/account/1'],
-            $url, 200,
-            accountBody()
-        ),
     );
 
     $order = makeEndpointApi($mock, $storage)->order()->get('1');

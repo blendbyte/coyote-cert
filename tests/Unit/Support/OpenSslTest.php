@@ -39,27 +39,6 @@ it('generates an EC P-384 key', function () {
     expect($details['ec']['curve_name'])->toBe('secp384r1');
 });
 
-// ── generatePrivateKey ────────────────────────────────────────────────────────
-
-it('generatePrivateKey returns an RSA key', function () {
-    $key     = OpenSsl::generatePrivateKey(OPENSSL_KEYTYPE_RSA);
-    $details = openssl_pkey_get_details($key);
-
-    expect($details['type'])->toBe(OPENSSL_KEYTYPE_RSA);
-});
-
-it('generatePrivateKey returns an EC key', function () {
-    $key     = OpenSsl::generatePrivateKey(OPENSSL_KEYTYPE_EC);
-    $details = openssl_pkey_get_details($key);
-
-    expect($details['type'])->toBe(OPENSSL_KEYTYPE_EC);
-});
-
-it('generatePrivateKey throws for unsupported key type', function () {
-    expect(fn () => OpenSsl::generatePrivateKey(999))
-        ->toThrow(CryptoException::class);
-});
-
 // ── openSslKeyToString ────────────────────────────────────────────────────────
 
 it('openSslKeyToString exports a PEM string', function () {

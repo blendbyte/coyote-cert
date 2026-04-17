@@ -53,6 +53,10 @@ Before asking the CA to validate, CoyoteCert does its own check first: it fetche
 
 Every code path has unit tests with mocked responses. The integration suite runs against a live [Pebble](https://github.com/letsencrypt/pebble) server in CI across PHP 8.3, 8.4, and 8.5. No mock-only false confidence.
 
+### CA-independent — no hidden defaults
+
+CoyoteCert has no default CA. Every issuance call requires you to pass a provider explicitly. Choosing a CA involves real trade-offs — trust store coverage, rate limits, certificate lifetime, EAB requirements, data residency — and that decision belongs to you, not the library.
+
 ### Modern, idiomatic PHP
 
 PHP 8.3+, strict types, backed enums, readonly constructor promotion, named arguments throughout. No magic methods, no global state, no hidden singletons.
@@ -127,6 +131,8 @@ echo $cert->caBundle;    // PEM intermediate chain
 ## Providers
 
 CoyoteCert ships with built-in providers for every major public ACME CA.
+
+CoyoteCert is CA-independent and intentionally has no default provider. Every call to `CoyoteCert::with()` requires an explicit provider — this is by design. Choosing a CA involves real trade-offs (trust store coverage, rate limits, certificate lifetime, EAB requirements, data residency), and that choice belongs to you, not the library.
 
 | Provider class | CA | EAB | Profiles |
 |---|---|---|---|

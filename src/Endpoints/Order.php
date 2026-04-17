@@ -55,7 +55,12 @@ class Order extends Endpoint
 
         $this->logResponse('error', 'Creating new order failed; bad response code.', $response, ['payload' => $payload]);
 
-        throw new AcmeException('Creating new order failed; bad response code.');
+        $detail = $response->jsonBody()['detail'] ?? $response->rawBody();
+        throw new AcmeException(sprintf(
+            'Creating new order failed (HTTP %d): %s',
+            $response->getHttpResponseCode(),
+            $detail,
+        ));
     }
 
     public function get(string $id): OrderData

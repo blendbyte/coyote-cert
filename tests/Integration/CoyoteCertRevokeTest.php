@@ -10,7 +10,7 @@ it('revokes a previously issued certificate', function () {
 
     $cert = CoyoteCert::with(pebble())
         ->storage($storage)
-        ->domains('revoke.example.com')
+        ->identifiers('revoke.example.com')
         ->challenge(new NoOpHttp01Handler())
         ->skipLocalTest()
         ->issue();
@@ -27,7 +27,7 @@ it('revokes with a specific reason code', function () {
 
     $cert = CoyoteCert::with(pebble())
         ->storage($storage)
-        ->domains('revoke-reason.example.com')
+        ->identifiers('revoke-reason.example.com')
         ->challenge(new NoOpHttp01Handler())
         ->skipLocalTest()
         ->issue();
@@ -44,7 +44,7 @@ it('throws when revoke is called without storage', function () {
 
     $cert = CoyoteCert::with(pebble())
         ->storage($storage)
-        ->domains('revoke-nostorage.example.com')
+        ->identifiers('revoke-nostorage.example.com')
         ->challenge(new NoOpHttp01Handler())
         ->skipLocalTest()
         ->issue();

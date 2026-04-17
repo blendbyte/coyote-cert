@@ -9,7 +9,7 @@ use Tests\Integration\Helpers\NoOpHttp01Handler;
 it('issues a certificate with default key types (RSA account, EC_P256 cert)', function () {
     $cert = CoyoteCert::with(pebble())
         ->storage(new InMemoryStorage())
-        ->domains('test.example.com')
+        ->identifiers('test.example.com')
         ->challenge(new NoOpHttp01Handler())
         ->skipLocalTest()
         ->issue();
@@ -25,7 +25,7 @@ it('issues a certificate with default key types (RSA account, EC_P256 cert)', fu
 it('issues a certificate with an EC P-256 account key', function () {
     $cert = CoyoteCert::with(pebble())
         ->storage(new InMemoryStorage())
-        ->domains('ec-account.example.com')
+        ->identifiers('ec-account.example.com')
         ->accountKeyType(KeyType::EC_P256)
         ->challenge(new NoOpHttp01Handler())
         ->skipLocalTest()
@@ -39,7 +39,7 @@ it('reuses an existing account on a second issue', function () {
 
     $first = CoyoteCert::with(pebble())
         ->storage($storage)
-        ->domains('reuse.example.com')
+        ->identifiers('reuse.example.com')
         ->challenge(new NoOpHttp01Handler())
         ->skipLocalTest()
         ->issue();
@@ -47,7 +47,7 @@ it('reuses an existing account on a second issue', function () {
     // Second call reuses the account key already in $storage
     $second = CoyoteCert::with(pebble())
         ->storage($storage)
-        ->domains('reuse.example.com')
+        ->identifiers('reuse.example.com')
         ->challenge(new NoOpHttp01Handler())
         ->skipLocalTest()
         ->issue();
@@ -61,14 +61,14 @@ it('issueOrRenew returns the cached cert when still valid', function () {
 
     $issued = CoyoteCert::with(pebble())
         ->storage($storage)
-        ->domains('cached.example.com')
+        ->identifiers('cached.example.com')
         ->challenge(new NoOpHttp01Handler())
         ->skipLocalTest()
         ->issue();
 
     $returned = CoyoteCert::with(pebble())
         ->storage($storage)
-        ->domains('cached.example.com')
+        ->identifiers('cached.example.com')
         ->challenge(new NoOpHttp01Handler())
         ->skipLocalTest()
         ->issueOrRenew(daysBeforeExpiry: 1);
@@ -79,7 +79,7 @@ it('issueOrRenew returns the cached cert when still valid', function () {
 it('issues a certificate with the shortlived profile', function () {
     $cert = CoyoteCert::with(pebble())
         ->storage(new InMemoryStorage())
-        ->domains('profile.example.com')
+        ->identifiers('profile.example.com')
         ->profile('shortlived')
         ->challenge(new NoOpHttp01Handler())
         ->skipLocalTest()

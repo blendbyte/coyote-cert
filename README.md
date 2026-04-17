@@ -37,6 +37,10 @@ CoyoteCert introduces `dns-persist-01`: deploy the TXT record once, leave it in 
 
 Let's Encrypt's `shortlived` profile issues 6-day certificates with no OCSP or CRL requirements. CoyoteCert passes the profile through and silently ignores it for CAs that don't support profiles yet.
 
+### IP address certificates (RFC 8738)
+
+Pass an IP address to `->identifiers()` and CoyoteCert handles the rest: `type: ip` on the ACME order, `IP:` SAN entries in the CSR. Mix hostnames and IPs freely in the same call. Useful for internal services, load balancer VIPs, and edge nodes where a hostname isn't always available.
+
 ### Swappable HTTP client (PSR-18)
 
 The built-in curl client needs no extra dependencies. Need proxy support, custom middleware, or framework integration? Swap it for any PSR-18 client (Symfony HttpClient, Guzzle, anything else) with one builder call.
@@ -88,7 +92,7 @@ use CoyoteCert\Storage\FilesystemStorage;
 
 $cert = CoyoteCert::with(new LetsEncrypt())
     ->storage(new FilesystemStorage('/var/certs'))
-    ->domains('example.com')
+    ->identifiers('example.com')
     ->email('admin@example.com')
     ->challenge(new Http01Handler('/var/www/html'))
     ->issueOrRenew();
@@ -437,7 +441,7 @@ Always requests a new certificate from the CA, regardless of what is in storage.
 ```php
 $cert = CoyoteCert::with(new LetsEncrypt())
     ->storage(new FilesystemStorage('/var/certs'))
-    ->domains('example.com')
+    ->identifiers('example.com')
     ->email('admin@example.com')
     ->challenge(new Http01Handler('/var/www/html'))
     ->issue();
@@ -450,7 +454,7 @@ The recommended method for production. Returns the existing certificate if it is
 ```php
 $cert = CoyoteCert::with(new LetsEncrypt())
     ->storage(new FilesystemStorage('/var/certs'))
-    ->domains('example.com')
+    ->identifiers('example.com')
     ->email('admin@example.com')
     ->challenge(new Http01Handler('/var/www/html'))
     ->issueOrRenew(daysBeforeExpiry: 30);
@@ -473,7 +477,7 @@ Check whether a renewal is needed without triggering one.
 ```php
 $coyote = CoyoteCert::with(new LetsEncrypt())
     ->storage(new FilesystemStorage('/var/certs'))
-    ->domains('example.com');
+    ->identifiers('example.com');
 
 if ($coyote->needsRenewal(30)) {
     // issue or alert
@@ -490,25 +494,50 @@ Returns `true` when:
 
 ## Wildcard and multi-domain certificates
 
-Pass an array of domains to `->domains()`. Wildcards require DNS-01 or dns-persist-01.
+Pass an array of domains to `->identifiers()`. Wildcards require DNS-01 or dns-persist-01.
 
 ```php
 // Multi-domain (SAN) certificate via HTTP-01
 CoyoteCert::with(new LetsEncrypt())
-    ->domains(['example.com', 'www.example.com', 'api.example.com'])
+    ->identifiers(['example.com', 'www.example.com', 'api.example.com'])
     ->challenge(new Http01Handler('/var/www/html'))
     ->issueOrRenew();
 
 // Wildcard certificate via DNS-01
 CoyoteCert::with(new LetsEncrypt())
-    ->domains(['example.com', '*.example.com'])
+    ->identifiers(['example.com', '*.example.com'])
     ->challenge(new CloudflareDns01Handler())
     ->issueOrRenew();
 ```
 
 `*.example.com` covers one label deep (`sub.example.com`) but not the apex (`example.com`). Include both if you need both.
 
-`->domains()` validates every entry against RFC-compliant hostname syntax and throws an `InvalidArgumentException` immediately for malformed input, so misconfigured domain lists are caught before any CA communication starts.
+`->identifiers()` validates every entry against RFC-compliant hostname syntax (or as an IP address) and throws an `AcmeException` immediately for malformed input, so misconfigured lists are caught before any CA communication starts.
+
+---
+
+## IP address certificates (RFC 8738)
+
+`->identifiers()` accepts IPv4 and IPv6 addresses alongside hostnames. CoyoteCert automatically sets `type: ip` on ACME identifiers and `IP:` SAN entries in the CSR — no extra API calls required.
+
+```php
+// IPv4-only certificate (e.g. with Let's Encrypt shortlived profile)
+CoyoteCert::with(new LetsEncrypt())
+    ->identifiers('192.0.2.1')
+    ->profile('shortlived')
+    ->challenge(new Http01Handler('/var/www/html'))
+    ->issueOrRenew();
+
+// Mixed hostname + IP certificate
+CoyoteCert::with(new LetsEncrypt())
+    ->identifiers(['example.com', '192.0.2.1', '2001:db8::1'])
+    ->challenge(new Http01Handler('/var/www/html'))
+    ->issueOrRenew();
+```
+
+IP SANs are validated via HTTP-01 (the CA connects to the IP directly). Wildcards cannot be combined with IP identifiers.
+
+Not all CAs support IP SANs — check your CA's documentation. Let's Encrypt supports them on both the `classic` and `shortlived` profiles.
 
 ---
 
@@ -534,7 +563,7 @@ $logger->pushHandler(new StreamHandler('/var/log/certs.log'));
 $cert = CoyoteCert::with(new LetsEncrypt())
     ->storage(new FilesystemStorage('/var/certs'))
     ->email('ops@example.com')
-    ->domains(['example.com', 'www.example.com'])
+    ->identifiers(['example.com', 'www.example.com'])
     ->challenge(new Http01Handler('/var/www/html'))
     ->logger($logger)
     ->issueOrRenew(daysBeforeExpiry: 30);
@@ -760,7 +789,7 @@ CoyoteCert::with(AcmeProviderInterface $provider)  // factory — select the CA
 | Method | Type | Default | Description |
 |---|---|---|---|
 | `->email(string)` | fluent | `''` | Contact email; required for ZeroSSL auto-provisioning |
-| `->domains(string\|array)` | fluent | — | Domain(s) to certify; first entry is the primary |
+| `->identifiers(string\|array)` | fluent | — | Domain(s) to certify; first entry is the primary |
 | `->challenge(ChallengeHandlerInterface)` | fluent | — | Challenge handler |
 | `->storage(StorageInterface)` | fluent | none | Storage backend |
 | `->keyType(KeyType)` | fluent | `EC_P256` | Certificate key algorithm |

@@ -49,6 +49,10 @@ The built-in curl client needs no extra dependencies. Need proxy support, custom
 
 Filesystem with file locking, PDO (MySQL, PostgreSQL, SQLite) with dialect-aware upserts, and in-memory for testing. All three share the same interface, so switching backends doesn't touch your issuance code.
 
+### Typed exceptions for every failure mode
+
+`RateLimitException` carries the CA's `Retry-After` seconds so your retry logic is precise. `AuthException` tells you credentials failed — not a transient error. `AcmeException::getSubproblems()` surfaces RFC 8555 §6.7 per-identifier errors so a multi-domain order can report exactly which domains were rejected and why. All exceptions share a common base so a single `catch` still works when you don't need the detail.
+
 ### CAA pre-check
 
 Before submitting an order, CoyoteCert queries CAA DNS records for every requested domain. If a record exists and excludes the chosen CA, you get an immediate `CaaException` naming the blocking domain — no wasted rate-limit attempt, no waiting for an ACME order to fail minutes later. The check follows RFC 8659 tree-walking, handles `issuewild` tags for wildcard domains, and respects parameter extensions (e.g. `letsencrypt.org; validationmethods=http-01`). CAA identifiers are built into every provider; `->skipCaaCheck()` opts out when DNS is internal or split-horizon.
@@ -625,6 +629,81 @@ CoyoteCert::with(new LetsEncrypt())
 ```
 
 `Pebble` and `CustomProvider` (without explicit `caaIdentifiers`) skip the check automatically, since their CAA identifiers are unknown.
+
+---
+
+## Error handling
+
+All exceptions extend `AcmeException`, so a single `catch (AcmeException $e)` covers everything. Catch the narrower types when you need to react differently to specific failure modes.
+
+### Rate limits — with Retry-After
+
+```php
+use CoyoteCert\Exceptions\RateLimitException;
+
+try {
+    $cert = CoyoteCert::with(new LetsEncrypt())
+        ->identifiers('example.com')
+        ->challenge(new Http01Handler('/var/www/html'))
+        ->issue();
+} catch (RateLimitException $e) {
+    $wait = $e->getRetryAfter(); // int seconds from Retry-After header, or null
+    echo "Rate limited. Retry" . ($wait ? " in {$wait}s." : " later.");
+}
+```
+
+`getRetryAfter()` returns the value from the CA's `Retry-After` header when present, or `null` when the header is absent. Use it to schedule a precise back-off rather than guessing.
+
+### Authentication failures
+
+```php
+use CoyoteCert\Exceptions\AuthException;
+
+try {
+    $api->account()->get();
+} catch (AuthException $e) {
+    // 401 / 403 — account key rejected or credentials revoked
+    echo $e->getMessage();
+}
+```
+
+`AuthException` is thrown on 401 and 403 responses. Distinct from a rate limit or a transient server error, so you can alert or re-provision credentials rather than retrying.
+
+### Per-identifier subproblems (RFC 8555 §6.7)
+
+When an order covering multiple domains is rejected, the CA may return a `subproblems` array with a separate error for each failing identifier:
+
+```php
+use CoyoteCert\Exceptions\AcmeException;
+
+try {
+    $cert = CoyoteCert::with(new LetsEncrypt())
+        ->identifiers(['example.com', 'bad.example.com'])
+        ->challenge(new Http01Handler('/var/www/html'))
+        ->issue();
+} catch (AcmeException $e) {
+    foreach ($e->getSubproblems() as $sub) {
+        // ['type' => '...', 'detail' => '...', 'identifier' => ['type' => 'dns', 'value' => '...']]
+        echo $sub['identifier']['value'] . ': ' . $sub['detail'] . PHP_EOL;
+    }
+}
+```
+
+`getSubproblems()` returns an empty array when the server returned a single top-level error with no per-identifier breakdown.
+
+### Exception hierarchy
+
+```
+AcmeException          — base; always safe to catch
+├── AuthException      — 401/403 (bad credentials, revoked account)
+├── RateLimitException — 429 (too many requests); carries getRetryAfter()
+├── CaaException       — CAA DNS record blocks issuance
+├── ChallengeException — challenge validation failed
+├── CryptoException    — local key or certificate operation failed
+├── DomainValidationException — pre-flight HTTP/DNS self-check failed
+├── OrderNotFoundException   — order ID not found on the CA
+└── StorageException   — storage backend error
+```
 
 ---
 

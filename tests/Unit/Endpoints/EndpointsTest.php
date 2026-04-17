@@ -7,6 +7,7 @@ use CoyoteCert\DTO\OrderData;
 use CoyoteCert\Enums\AuthorizationChallengeEnum;
 use CoyoteCert\Enums\KeyType;
 use CoyoteCert\Exceptions\AcmeException;
+use CoyoteCert\Exceptions\AuthException;
 use CoyoteCert\Exceptions\OrderNotFoundException;
 use CoyoteCert\Exceptions\RateLimitException;
 use CoyoteCert\Http\Response;
@@ -429,7 +430,7 @@ it('Order::new() throws when response is not 201', function () {
     ), withKeyStorage());
 
     expect(fn() => $api->order()->new(makeAccountData(), ['example.com']))
-        ->toThrow(AcmeException::class, 'Creating new order failed');
+        ->toThrow(AcmeException::class, 'Bad Request');
 });
 
 it('Order::new() returns OrderData on 201 response', function () {
@@ -581,6 +582,78 @@ it('Order::get() throws AcmeException on 500', function () {
 
     expect(fn() => makeEndpointApi($mock, $storage)->order()->get('fail'))
         ->toThrow(AcmeException::class, 'Internal error');
+});
+
+it('Order::get() throws RateLimitException with parsed Retry-After seconds', function () {
+    $storage = withKeyStorage();
+
+    $mock = closureMock(
+        getHandler: fn($url) => new Response([], $url, 200, directoryBody()),
+        postHandler: fn($url) => str_contains($url, 'new-account')
+            ? new Response(['location' => 'https://acme.example/account/1'], $url, 200, accountBody())
+            : new Response(['retry-after' => '30'], $url, 429, ['detail' => 'Rate limited']),
+    );
+
+    $caught = null;
+    try {
+        makeEndpointApi($mock, $storage)->order()->get('spam');
+    } catch (RateLimitException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->toBeInstanceOf(RateLimitException::class);
+    expect($caught->getRetryAfter())->toBe(30);
+});
+
+it('Order::get() throws AuthException on 401', function () {
+    $storage = withKeyStorage();
+
+    $mock = closureMock(
+        getHandler: fn($url) => new Response([], $url, 200, directoryBody()),
+        postHandler: fn($url) => str_contains($url, 'new-account')
+            ? new Response(['location' => 'https://acme.example/account/1'], $url, 200, accountBody())
+            : new Response([], $url, 401, ['detail' => 'Unauthorized']),
+    );
+
+    expect(fn() => makeEndpointApi($mock, $storage)->order()->get('auth-fail'))
+        ->toThrow(AuthException::class, 'Unauthorized');
+});
+
+it('Order::new() throws RateLimitException on 429', function () {
+    $api = makeEndpointApi(endpointMock(
+        getBody: directoryBody(),
+        postBody: ['detail' => 'Too many certificates already issued'],
+        postCode: 429,
+    ), withKeyStorage());
+
+    expect(fn() => $api->order()->new(makeAccountData(), ['example.com']))
+        ->toThrow(RateLimitException::class, 'Too many certificates already issued');
+});
+
+it('Order::new() attaches RFC 8555 §6.7 subproblems to the thrown exception', function () {
+    $subproblems = [
+        [
+            'type'       => 'urn:ietf:params:acme:error:rejectedIdentifier',
+            'detail'     => 'This CA will not issue for "bad.example.com"',
+            'identifier' => ['type' => 'dns', 'value' => 'bad.example.com'],
+        ],
+    ];
+
+    $api = makeEndpointApi(endpointMock(
+        getBody: directoryBody(),
+        postBody: ['detail' => 'Some identifiers were rejected', 'subproblems' => $subproblems],
+        postCode: 400,
+    ), withKeyStorage());
+
+    $caught = null;
+    try {
+        $api->order()->new(makeAccountData(), ['example.com', 'bad.example.com']);
+    } catch (AcmeException $e) {
+        $caught = $e;
+    }
+
+    expect($caught)->toBeInstanceOf(AcmeException::class);
+    expect($caught->getSubproblems())->toBe($subproblems);
 });
 
 it('Order::get() returns OrderData on success', function () {

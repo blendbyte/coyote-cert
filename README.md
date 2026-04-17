@@ -138,7 +138,7 @@ If a valid certificate already exists and expiry is more than `--days` away, the
 | `--domain` | `-d` | — | Domain to include on the certificate. Repeat for SANs: `--domain example.com --domain www.example.com` |
 | `--email` | `-e` | — | Contact email registered with the ACME account |
 | `--webroot` | `-w` | — | Webroot path for HTTP-01. CoyoteCert writes tokens under `.well-known/acme-challenge/` |
-| `--provider` | `-p` | `letsencrypt` | CA to use. See provider table below |
+| `--provider` | `-p` | — | CA to use. See provider table below. **Required** |
 | `--storage` | `-s` | `./certs` | Directory to read/write certificates and account keys |
 | `--days` | — | `30` | Renew when fewer than this many days remain before expiry |
 | `--key-type` | — | `ec256` | Certificate key type: `ec256`, `ec384`, `rsa2048`, `rsa4096` |

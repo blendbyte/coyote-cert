@@ -51,6 +51,16 @@ it('fails when --webroot is missing', function () {
     expect($output)->toContain('--webroot is required');
 });
 
+it('fails when --provider is not provided', function () {
+    [$code, $output] = runIssue([
+        '--domain'  => ['example.com'],
+        '--webroot' => '/tmp',
+    ]);
+
+    expect($code)->toBe(Command::FAILURE);
+    expect($output)->toContain('--provider is required');
+});
+
 it('fails for an unknown --provider', function () {
     [$code, $output] = runIssue([
         '--domain'   => ['example.com'],
@@ -66,6 +76,7 @@ it('fails for an unknown --key-type', function () {
     [$code, $output] = runIssue([
         '--domain'   => ['example.com'],
         '--webroot'  => '/tmp',
+        '--provider' => 'letsencrypt',
         '--key-type' => 'rsa9999',
     ]);
 
@@ -142,9 +153,10 @@ function runStub(mixed $result, array $input = []): array
 {
     $tester = new CommandTester(new StubIssueCommand($result));
     $tester->execute(array_merge([
-        '--domain'  => ['example.com'],
-        '--webroot' => '/tmp',
-        '--storage' => sys_get_temp_dir(),
+        '--domain'   => ['example.com'],
+        '--webroot'  => '/tmp',
+        '--storage'  => sys_get_temp_dir(),
+        '--provider' => 'letsencrypt',
     ], $input));
 
     return [$tester->getStatusCode(), test()->buffer->fetch()];

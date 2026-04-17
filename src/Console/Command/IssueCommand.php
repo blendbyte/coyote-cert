@@ -27,7 +27,7 @@ class IssueCommand extends Command
             ->addOption('domain', 'd', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Domain name(s) to include on the certificate')
             ->addOption('email', 'e', InputOption::VALUE_REQUIRED, 'Contact email for the ACME account')
             ->addOption('webroot', 'w', InputOption::VALUE_REQUIRED, 'Webroot path for HTTP-01 challenge (.well-known/acme-challenge will be written here)')
-            ->addOption('provider', 'p', InputOption::VALUE_REQUIRED, 'CA to use: letsencrypt, letsencrypt-staging, zerossl, google, buypass, buypass-staging, sslcom', 'letsencrypt')
+            ->addOption('provider', 'p', InputOption::VALUE_REQUIRED, 'CA to use: letsencrypt, letsencrypt-staging, zerossl, google, buypass, buypass-staging, sslcom')
             ->addOption('storage', 's', InputOption::VALUE_REQUIRED, 'Directory to store certificates and account keys', './certs')
             ->addOption('days', null, InputOption::VALUE_REQUIRED, 'Days before expiry to trigger renewal', '30')
             ->addOption('key-type', null, InputOption::VALUE_REQUIRED, 'Certificate key type: ec256, ec384, rsa2048, rsa4096', 'ec256')
@@ -53,6 +53,12 @@ class IssueCommand extends Command
 
         if ($webroot === null) {
             $this->renderError('--webroot is required for HTTP-01 challenge validation.');
+
+            return Command::FAILURE;
+        }
+
+        if ($provider === null) {
+            $this->renderError('--provider is required. Supported: letsencrypt, letsencrypt-staging, zerossl, google, buypass, buypass-staging, sslcom.');
 
             return Command::FAILURE;
         }

@@ -12,7 +12,6 @@ use CoyoteCert\Enums\AuthorizationChallengeEnum;
 use CoyoteCert\Enums\KeyType;
 use CoyoteCert\Enums\RevocationReason;
 use CoyoteCert\Exceptions\AcmeException;
-use CoyoteCert\Exceptions\CaaException;
 use CoyoteCert\Http\Client as HttpClient;
 use CoyoteCert\Http\Psr18Adapter;
 use CoyoteCert\Interfaces\ChallengeHandlerInterface;
@@ -237,7 +236,7 @@ class CoyoteCert
         if (!$this->skipCaaCheck) {
             $domainIdentifiers = array_values(array_filter(
                 $this->domains,
-                static fn (string $id): bool => !filter_var($id, FILTER_VALIDATE_IP),
+                static fn(string $id): bool => !filter_var($id, FILTER_VALIDATE_IP),
             ));
 
             if (!empty($domainIdentifiers)) {

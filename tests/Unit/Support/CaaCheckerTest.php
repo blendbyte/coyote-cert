@@ -22,8 +22,8 @@ function makeCaaRecord(string $tag, string $value, int $flag = 0): CAA
 /**
  * Build a CaaChecker whose resolver returns $records for every domain.
  *
- * @param CAA[]|array<string, CAA[]> $recordsOrMap  Either a flat array (same records for all
- *                                                   domains) or a domain-keyed map.
+ * @param CAA[]|array<string, CAA[]> $recordsOrMap Either a flat array (same records for all
+ *                                                 domains) or a domain-keyed map.
  */
 function makeChecker(array $recordsOrMap = []): CaaChecker
 {

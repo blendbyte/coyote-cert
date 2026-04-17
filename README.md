@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://github.com/blendbyte/coyotecert/blob/main/LICENSE)
 [![PHP](https://img.shields.io/badge/PHP-8.3%2B-787cb5?style=flat-square)](https://www.php.net)
 [![Tests](https://img.shields.io/github/actions/workflow/status/blendbyte/coyotecert/tests.yml?branch=main&style=flat-square&label=tests)](https://github.com/blendbyte/coyotecert/actions/workflows/tests.yml)
+[![Static Analysis](https://img.shields.io/github/actions/workflow/status/blendbyte/coyotecert/static-analysis.yml?branch=main&style=flat-square&label=phpstan)](https://github.com/blendbyte/coyotecert/actions/workflows/static-analysis.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/blendbyte/coyotecert?style=flat-square)](https://codecov.io/gh/blendbyte/coyotecert)
 
 **A modern, fully RFC 8555-compliant ACME v2 client for PHP 8.3+.** Issue, renew, and revoke TLS certificates from Let's Encrypt, ZeroSSL, Google Trust Services, SSL.com, Buypass, or any standards-compliant CA — with a clean fluent API, zero framework dependencies, and production-grade test coverage.
@@ -587,6 +588,7 @@ Revoke a stored certificate with an optional RFC 5280 reason code.
 
 ```php
 use CoyoteCert\CoyoteCert;
+use CoyoteCert\Enums\RevocationReason;
 use CoyoteCert\Provider\LetsEncrypt;
 use CoyoteCert\Storage\FilesystemStorage;
 
@@ -595,12 +597,14 @@ $coyote = CoyoteCert::with(new LetsEncrypt())
 
 $cert = $coyote->storage->getCertificate('example.com');
 
-$coyote->revoke($cert);               // reason 0 — unspecified (default)
-$coyote->revoke($cert, reason: 1);    // keyCompromise
-$coyote->revoke($cert, reason: 2);    // cACompromise
-$coyote->revoke($cert, reason: 3);    // affiliationChanged
-$coyote->revoke($cert, reason: 4);    // superseded
-$coyote->revoke($cert, reason: 5);    // cessationOfOperation
+$coyote->revoke($cert);                                              // Unspecified (default)
+$coyote->revoke($cert, RevocationReason::KeyCompromise);
+$coyote->revoke($cert, RevocationReason::CaCompromise);
+$coyote->revoke($cert, RevocationReason::AffiliationChanged);
+$coyote->revoke($cert, RevocationReason::Superseded);
+$coyote->revoke($cert, RevocationReason::CessationOfOperation);
+$coyote->revoke($cert, RevocationReason::CertificateHold);
+$coyote->revoke($cert, RevocationReason::PrivilegeWithdrawn);
 ```
 
 Returns `true` on success, `false` if the CA rejected the request.

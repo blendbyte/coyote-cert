@@ -10,6 +10,7 @@ use CoyoteCert\DTO\Http01ValidationData;
 use CoyoteCert\DTO\OrderData;
 use CoyoteCert\Enums\AuthorizationChallengeEnum;
 use CoyoteCert\Enums\KeyType;
+use CoyoteCert\Enums\RevocationReason;
 use CoyoteCert\DTO\RenewalWindow;
 use CoyoteCert\Exceptions\AcmeException;
 use CoyoteCert\Http\Client as HttpClient;
@@ -340,9 +341,8 @@ class CoyoteCert
      *
      * Requires storage to be configured (the account key is used to sign the request).
      *
-     * @param int $reason RFC 5280 reason code (0 = unspecified, 1 = keyCompromise, …)
      */
-    public function revoke(StoredCertificate $cert, int $reason = 0): bool
+    public function revoke(StoredCertificate $cert, RevocationReason $reason = RevocationReason::Unspecified): bool
     {
         if ($this->storage === null) {
             throw new AcmeException(
@@ -358,7 +358,7 @@ class CoyoteCert
             accountKeyType: $this->accountKeyType,
         );
 
-        return $api->certificate()->revoke($cert->certificate, $reason);
+        return $api->certificate()->revoke($cert->certificate, $reason->value);
     }
 
     /**

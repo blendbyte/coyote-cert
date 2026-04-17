@@ -1,6 +1,7 @@
 <?php
 
 use CoyoteCert\CoyoteCert;
+use CoyoteCert\Enums\RevocationReason;
 use CoyoteCert\Storage\InMemoryStorage;
 use Tests\Integration\Helpers\NoOpHttp01Handler;
 
@@ -33,7 +34,7 @@ it('revokes with a specific reason code', function () {
 
     $result = CoyoteCert::with(pebble())
         ->storage($storage)
-        ->revoke($cert, reason: 1); // keyCompromise
+        ->revoke($cert, RevocationReason::KeyCompromise);
 
     expect($result)->toBeTrue();
 })->skip(fn () => !pebbleAvailable(), 'Pebble not running — skipping integration tests');

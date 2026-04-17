@@ -119,6 +119,14 @@ class DatabaseStorage implements StorageInterface
         );
     }
 
+    public function deleteCertificate(string $domain): void
+    {
+        $stmt = $this->pdo->prepare(
+            "DELETE FROM `{$this->table}` WHERE `store_key` = :key"
+        );
+        $stmt->execute([':key' => $this->certKey($domain)]);
+    }
+
     // ── PDO helpers ───────────────────────────────────────────────────────────
 
     private function certKey(string $domain): string

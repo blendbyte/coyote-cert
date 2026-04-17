@@ -412,6 +412,11 @@ class RedisStorage implements StorageInterface
     {
         $this->redis->set("acme:cert:{$domain}", json_encode($cert->toArray()));
     }
+
+    public function deleteCertificate(string $domain): void
+    {
+        $this->redis->del("acme:cert:{$domain}");
+    }
 }
 ```
 
@@ -611,6 +616,12 @@ $coyote->revoke($cert, RevocationReason::PrivilegeWithdrawn);
 
 Returns `true` on success, `false` if the CA rejected the request.
 
+After revoking, remove the stored certificate so `issueOrRenew()` will request a fresh one:
+
+```php
+$storage->deleteCertificate('example.com');
+```
+
 ---
 
 ## PSR-18 HTTP client
@@ -693,6 +704,10 @@ $cert->domains      // string[] — domains as recorded at issuance time
 ### Methods
 
 ```php
+// Quick expiry checks
+$cert->isExpired();              // bool — true if the cert is past its expiry
+$cert->expiresWithin(30);        // bool — true if expiry is ≤ 30 days away
+
 // Days until expiry — 0 if already expired
 $cert->remainingDays();
 
@@ -749,7 +764,7 @@ CoyoteCert::with(AcmeProviderInterface $provider)  // factory — select the CA
 | `->renew()` | terminal | — | Alias for `issue()` |
 | `->issueOrRenew(int $days = 30)` | terminal | — | Issue only when needed; returns `StoredCertificate` |
 | `->needsRenewal(int $days = 30)` | query | — | `true` if renewal is needed |
-| `->revoke(StoredCertificate, int $reason = 0)` | terminal | — | Revoke a certificate |
+| `->revoke(StoredCertificate, RevocationReason)` | terminal | — | Revoke a certificate |
 
 ---
 

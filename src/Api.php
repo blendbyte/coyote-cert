@@ -69,14 +69,6 @@ class Api
         );
     }
 
-    /**
-     * @deprecated Use accountAdapter() instead.
-     */
-    public function localAccount(): AcmeAccountInterface
-    {
-        return $this->accountAdapter();
-    }
-
     public function directory(): Directory
     {
         return new Directory($this);

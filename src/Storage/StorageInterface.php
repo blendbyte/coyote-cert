@@ -28,4 +28,9 @@ interface StorageInterface
     public function getCertificate(string $domain): ?StoredCertificate;
 
     public function saveCertificate(string $domain, StoredCertificate $cert): void;
+
+    /**
+     * Remove a stored certificate. No-op when the domain is not found.
+     */
+    public function deleteCertificate(string $domain): void;
 }

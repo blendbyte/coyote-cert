@@ -23,12 +23,12 @@ function makeApi(?InMemoryStorage $storage = null, ?HttpClientInterface $httpCli
     );
 }
 
-// ── localAccount() ────────────────────────────────────────────────────────────
+// ── accountAdapter() ─────────────────────────────────────────────────────────
 
-it('localAccount() throws when no storage is configured', function () {
+it('accountAdapter() throws when no storage is configured', function () {
     $api = makeApi(storage: null);
 
-    expect(fn () => $api->localAccount())
+    expect(fn () => $api->accountAdapter())
         ->toThrow(AcmeException::class, 'No storage configured');
 });
 

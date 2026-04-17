@@ -63,6 +63,21 @@ it('isolates certificates by domain', function () {
     expect($storage->getCertificate('other.com'))->toBeNull();
 });
 
+it('deleteCertificate() removes the certificate', function () {
+    $storage = new InMemoryStorage();
+    $storage->saveCertificate('example.com', makeStoredCert());
+    $storage->deleteCertificate('example.com');
+
+    expect($storage->hasCertificate('example.com'))->toBeFalse();
+    expect($storage->getCertificate('example.com'))->toBeNull();
+});
+
+it('deleteCertificate() is a no-op for unknown domain', function () {
+    $storage = new InMemoryStorage();
+    $storage->deleteCertificate('unknown.com'); // must not throw
+    expect(true)->toBeTrue();
+});
+
 it('overwrites an existing certificate', function () {
     $storage = new InMemoryStorage();
     $first   = makeStoredCert();

@@ -106,6 +106,60 @@ it('saveAccountKey throws when the storage directory cannot be created', functio
     @unlink($this->dir);
 });
 
+it('deleteCertificate() removes the stored file', function () {
+    $this->storage->saveCertificate('example.com', makeFileCert());
+    $this->storage->deleteCertificate('example.com');
+
+    expect($this->storage->hasCertificate('example.com'))->toBeFalse();
+});
+
+it('deleteCertificate() is a no-op for unknown domain', function () {
+    $this->storage->deleteCertificate('unknown.com'); // must not throw
+    expect(true)->toBeTrue();
+});
+
+// ── StoredCertificate helpers ─────────────────────────────────────────────────
+
+it('isExpired() returns false for a future certificate', function () {
+    $cert = new StoredCertificate(
+        certificate: '', privateKey: '', fullchain: '', caBundle: '',
+        issuedAt: new DateTimeImmutable('-1 day'),
+        expiresAt: new DateTimeImmutable('+90 days'),
+        domains: ['example.com'],
+    );
+    expect($cert->isExpired())->toBeFalse();
+});
+
+it('isExpired() returns true for a past certificate', function () {
+    $cert = new StoredCertificate(
+        certificate: '', privateKey: '', fullchain: '', caBundle: '',
+        issuedAt: new DateTimeImmutable('-100 days'),
+        expiresAt: new DateTimeImmutable('-1 day'),
+        domains: ['example.com'],
+    );
+    expect($cert->isExpired())->toBeTrue();
+});
+
+it('expiresWithin() returns true when expiry is within the window', function () {
+    $cert = new StoredCertificate(
+        certificate: '', privateKey: '', fullchain: '', caBundle: '',
+        issuedAt: new DateTimeImmutable('-60 days'),
+        expiresAt: new DateTimeImmutable('+10 days'),
+        domains: ['example.com'],
+    );
+    expect($cert->expiresWithin(30))->toBeTrue();
+});
+
+it('expiresWithin() returns false when expiry is beyond the window', function () {
+    $cert = new StoredCertificate(
+        certificate: '', privateKey: '', fullchain: '', caBundle: '',
+        issuedAt: new DateTimeImmutable('-1 day'),
+        expiresAt: new DateTimeImmutable('+60 days'),
+        domains: ['example.com'],
+    );
+    expect($cert->expiresWithin(30))->toBeFalse();
+});
+
 it('writeFile throws StorageException when the file cannot be written', function () {
     // Create the directory first so ensureDirectory() passes, then remove write permission.
     mkdir($this->dir, 0755, true);

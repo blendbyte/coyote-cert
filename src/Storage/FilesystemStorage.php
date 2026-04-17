@@ -71,6 +71,15 @@ class FilesystemStorage implements StorageInterface
         );
     }
 
+    public function deleteCertificate(string $domain): void
+    {
+        $path = $this->certPath($domain);
+
+        if (file_exists($path)) {
+            unlink($path);
+        }
+    }
+
     // ── Paths ─────────────────────────────────────────────────────────────────
 
     private function accountKeyPath(): string

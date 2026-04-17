@@ -46,6 +46,16 @@ readonly class StoredCertificate
         );
     }
 
+    public function isExpired(): bool
+    {
+        return $this->expiresAt <= new \DateTimeImmutable();
+    }
+
+    public function expiresWithin(int $days): bool
+    {
+        return $this->daysUntilExpiry() <= $days;
+    }
+
     public function remainingDays(): int
     {
         $diff = (new \DateTimeImmutable())->diff($this->expiresAt);

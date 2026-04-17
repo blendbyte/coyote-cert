@@ -64,4 +64,9 @@ class InMemoryStorage implements StorageInterface
     {
         $this->certificates[$domain] = $cert;
     }
+
+    public function deleteCertificate(string $domain): void
+    {
+        unset($this->certificates[$domain]);
+    }
 }

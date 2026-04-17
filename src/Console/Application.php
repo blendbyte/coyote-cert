@@ -37,8 +37,8 @@ class Application extends BaseApplication
     public function getLongVersion(): string
     {
         return sprintf(
-            '<info>coyote</info> <comment>%s</comment> — ACME v2 TLS certificate manager' . PHP_EOL .
-            '  <href=%s>%s</>',
+            '<info>coyote</info> <comment>%s</comment> — ACME v2 TLS certificate manager' . PHP_EOL
+            . '  <href=%s>%s</>',
             $this->getVersion(),
             self::REPO,
             self::REPO,
@@ -48,11 +48,11 @@ class Application extends BaseApplication
     public function getHelp(): string
     {
         return sprintf(
-            '<info>coyote</info> — ACME v2 TLS certificate manager' . PHP_EOL .
-            '  Issue, renew, and inspect certificates from <comment>Let\'s Encrypt</comment>, <comment>ZeroSSL</comment>,' . PHP_EOL .
-            '  <comment>Google Trust Services</comment>, <comment>SSL.com</comment>, and <comment>Buypass</comment>.' . PHP_EOL .
-            PHP_EOL .
-            '  <href=%1$s>%1$s</>',
+            '<info>coyote</info> — ACME v2 TLS certificate manager' . PHP_EOL
+            . '  Issue, renew, and inspect certificates from <comment>Let\'s Encrypt</comment>, <comment>ZeroSSL</comment>,' . PHP_EOL
+            . '  <comment>Google Trust Services</comment>, <comment>SSL.com</comment>, and <comment>Buypass</comment>.' . PHP_EOL
+            . PHP_EOL
+            . '  <href=%1$s>%1$s</>',
             self::REPO,
         );
     }

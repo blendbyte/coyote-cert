@@ -33,14 +33,14 @@ class ProviderResolver
                 => new ZeroSSL(apiKey: $zeroSslKey, eabKid: $eabKid, eabHmac: $eabHmac),
 
             'google', 'google-trust-services', 'gts' => self::requireEab(
-                fn () => new GoogleTrustServices($eabKid, $eabHmac),
+                fn(string $kid, string $hmac) => new GoogleTrustServices($kid, $hmac),
                 $eabKid,
                 $eabHmac,
                 'Google Trust Services',
             ),
 
             'sslcom', 'ssl.com' => self::requireEab(
-                fn () => new SslCom($eabKid, $eabHmac),
+                fn(string $kid, string $hmac) => new SslCom($kid, $hmac),
                 $eabKid,
                 $eabHmac,
                 'SSL.com',
@@ -64,14 +64,14 @@ class ProviderResolver
     public static function displayName(string $name): string
     {
         return match (strtolower($name)) {
-            'letsencrypt', 'le'                               => "Let's Encrypt",
-            'letsencrypt-staging', 'le-staging', 'staging'   => "Let's Encrypt (Staging)",
-            'zerossl'                                         => 'ZeroSSL',
-            'google', 'google-trust-services', 'gts'          => 'Google Trust Services',
-            'sslcom', 'ssl.com'                               => 'SSL.com',
-            'buypass'                                         => 'Buypass Go',
-            'buypass-staging'                                 => 'Buypass Go (Staging)',
-            default                                           => $name,
+            'letsencrypt', 'le'                            => "Let's Encrypt",
+            'letsencrypt-staging', 'le-staging', 'staging' => "Let's Encrypt (Staging)",
+            'zerossl'                                      => 'ZeroSSL',
+            'google', 'google-trust-services', 'gts'       => 'Google Trust Services',
+            'sslcom', 'ssl.com'                            => 'SSL.com',
+            'buypass'                                      => 'Buypass Go',
+            'buypass-staging'                              => 'Buypass Go (Staging)',
+            default                                        => $name,
         };
     }
 
@@ -83,6 +83,6 @@ class ProviderResolver
             );
         }
 
-        return $factory();
+        return $factory($kid, $hmac);
     }
 }

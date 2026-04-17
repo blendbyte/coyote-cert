@@ -24,19 +24,19 @@ class IssueCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('domain',          'd', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Domain name(s) to include on the certificate')
-            ->addOption('email',           'e', InputOption::VALUE_REQUIRED, 'Contact email for the ACME account')
-            ->addOption('webroot',         'w', InputOption::VALUE_REQUIRED, 'Webroot path for HTTP-01 challenge (.well-known/acme-challenge will be written here)')
-            ->addOption('provider',        'p', InputOption::VALUE_REQUIRED, 'CA to use: letsencrypt, letsencrypt-staging, zerossl, google, buypass, buypass-staging, sslcom', 'letsencrypt')
-            ->addOption('storage',         's', InputOption::VALUE_REQUIRED, 'Directory to store certificates and account keys', './certs')
-            ->addOption('days',            null, InputOption::VALUE_REQUIRED, 'Days before expiry to trigger renewal', '30')
-            ->addOption('key-type',        null, InputOption::VALUE_REQUIRED, 'Certificate key type: ec256, ec384, rsa2048, rsa4096', 'ec256')
-            ->addOption('force',           'f', InputOption::VALUE_NONE, 'Force issuance even if the certificate is still valid')
-            ->addOption('skip-caa',        null, InputOption::VALUE_NONE, 'Skip CAA DNS pre-check')
+            ->addOption('domain', 'd', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Domain name(s) to include on the certificate')
+            ->addOption('email', 'e', InputOption::VALUE_REQUIRED, 'Contact email for the ACME account')
+            ->addOption('webroot', 'w', InputOption::VALUE_REQUIRED, 'Webroot path for HTTP-01 challenge (.well-known/acme-challenge will be written here)')
+            ->addOption('provider', 'p', InputOption::VALUE_REQUIRED, 'CA to use: letsencrypt, letsencrypt-staging, zerossl, google, buypass, buypass-staging, sslcom', 'letsencrypt')
+            ->addOption('storage', 's', InputOption::VALUE_REQUIRED, 'Directory to store certificates and account keys', './certs')
+            ->addOption('days', null, InputOption::VALUE_REQUIRED, 'Days before expiry to trigger renewal', '30')
+            ->addOption('key-type', null, InputOption::VALUE_REQUIRED, 'Certificate key type: ec256, ec384, rsa2048, rsa4096', 'ec256')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force issuance even if the certificate is still valid')
+            ->addOption('skip-caa', null, InputOption::VALUE_NONE, 'Skip CAA DNS pre-check')
             ->addOption('skip-local-test', null, InputOption::VALUE_NONE, 'Skip the pre-flight HTTP self-test')
-            ->addOption('zerossl-key',     null, InputOption::VALUE_REQUIRED, 'ZeroSSL API key for automatic EAB provisioning')
-            ->addOption('eab-kid',         null, InputOption::VALUE_REQUIRED, 'EAB key ID (Google Trust Services, SSL.com, or ZeroSSL pre-provisioned)')
-            ->addOption('eab-hmac',        null, InputOption::VALUE_REQUIRED, 'EAB HMAC key');
+            ->addOption('zerossl-key', null, InputOption::VALUE_REQUIRED, 'ZeroSSL API key for automatic EAB provisioning')
+            ->addOption('eab-kid', null, InputOption::VALUE_REQUIRED, 'EAB key ID (Google Trust Services, SSL.com, or ZeroSSL pre-provisioned)')
+            ->addOption('eab-hmac', null, InputOption::VALUE_REQUIRED, 'EAB HMAC key');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -47,11 +47,13 @@ class IssueCommand extends Command
 
         if (empty($domains)) {
             $this->renderError('No domains specified. Use --domain example.com (repeatable for SANs).');
+
             return Command::FAILURE;
         }
 
         if ($webroot === null) {
             $this->renderError('--webroot is required for HTTP-01 challenge validation.');
+
             return Command::FAILURE;
         }
 
@@ -64,6 +66,7 @@ class IssueCommand extends Command
             );
         } catch (\InvalidArgumentException $e) {
             $this->renderError($e->getMessage());
+
             return Command::FAILURE;
         }
 
@@ -71,6 +74,7 @@ class IssueCommand extends Command
             $keyType = $this->resolveKeyType($input->getOption('key-type'));
         } catch (\InvalidArgumentException $e) {
             $this->renderError($e->getMessage());
+
             return Command::FAILURE;
         }
 
@@ -115,16 +119,19 @@ class IssueCommand extends Command
         } catch (RateLimitException $e) {
             $retryAfter = $e->getRetryAfter();
             $hint       = $retryAfter !== null
-                ? sprintf('Retry after: <b>%s</b>', $retryAfter->format('D, d M Y H:i:s T'))
+                ? sprintf('Retry after %d seconds.', $retryAfter)
                 : 'Check your CA dashboard for rate limit details.';
 
             $this->renderError('Rate limit reached — too many certificate requests recently.', $hint);
+
             return Command::FAILURE;
         } catch (AuthException $e) {
             $this->renderError('Authentication failed.', htmlspecialchars($e->getMessage()));
+
             return Command::FAILURE;
         } catch (\Throwable $e) {
             $this->renderError('Certificate issuance failed.', htmlspecialchars($e->getMessage()));
+
             return Command::FAILURE;
         }
 
@@ -151,40 +158,44 @@ class IssueCommand extends Command
 
         render(sprintf(
             <<<HTML
-            <div class="mt-1 mb-1">
-                <div class="ml-2">
-                    <span class="%s font-bold">%s</span>
-                    <span class="ml-1 font-bold">%s</span>
+                <div class="mt-1 mb-1">
+                    <div class="ml-2">
+                        <span class="%s font-bold">%s</span>
+                        <span class="ml-1 font-bold">%s</span>
+                    </div>
+                    <table class="mt-1 ml-4">
+                        <tr>
+                            <td class="text-gray-500 pr-4">Domain(s)</td>
+                            <td>%s</td>
+                        </tr>
+                        <tr>
+                            <td class="text-gray-500 pr-4">Provider</td>
+                            <td>%s</td>
+                        </tr>
+                        <tr>
+                            <td class="text-gray-500 pr-4">Key type</td>
+                            <td>%s</td>
+                        </tr>
+                        <tr>
+                            <td class="text-gray-500 pr-4">Expires</td>
+                            <td>%s <span class="%s">(%d days)</span></td>
+                        </tr>
+                        <tr>
+                            <td class="text-gray-500 pr-4">Storage</td>
+                            <td>%s</td>
+                        </tr>
+                    </table>
                 </div>
-                <table class="mt-1 ml-4">
-                    <tr>
-                        <td class="text-gray-500 pr-4">Domain(s)</td>
-                        <td>%s</td>
-                    </tr>
-                    <tr>
-                        <td class="text-gray-500 pr-4">Provider</td>
-                        <td>%s</td>
-                    </tr>
-                    <tr>
-                        <td class="text-gray-500 pr-4">Key type</td>
-                        <td>%s</td>
-                    </tr>
-                    <tr>
-                        <td class="text-gray-500 pr-4">Expires</td>
-                        <td>%s <span class="%s">(%d days)</span></td>
-                    </tr>
-                    <tr>
-                        <td class="text-gray-500 pr-4">Storage</td>
-                        <td>%s</td>
-                    </tr>
-                </table>
-            </div>
-            HTML,
-            $color, $icon, $heading,
+                HTML,
+            $color,
+            $icon,
+            $heading,
             $domainsStr,
             $provider,
             $keyLabel,
-            $expiresDate, $daysColor, $days,
+            $expiresDate,
+            $daysColor,
+            $days,
             $storagePath,
         ));
     }
@@ -197,14 +208,14 @@ class IssueCommand extends Command
 
         render(sprintf(
             <<<HTML
-            <div class="mt-1 mb-1">
-                <div class="ml-2">
-                    <span class="text-red-500 font-bold">✗</span>
-                    <span class="ml-1 text-red-500">%s</span>
+                <div class="mt-1 mb-1">
+                    <div class="ml-2">
+                        <span class="text-red-500 font-bold">✗</span>
+                        <span class="ml-1 text-red-500">%s</span>
+                    </div>
+                    %s
                 </div>
-                %s
-            </div>
-            HTML,
+                HTML,
             $message,
             $detailHtml,
         ));

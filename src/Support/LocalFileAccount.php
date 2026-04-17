@@ -48,7 +48,7 @@ class LocalFileAccount implements AcmeAccountInterface
             throw new StorageException(sprintf('Directory "%s" was not created: path exists as a file', $dir));
         }
 
-        if (!is_dir($dir) && !mkdir($dir) && !is_dir($dir)) {
+        if (!is_dir($dir) && !mkdir($dir, 0700) && !is_dir($dir)) {
             throw new StorageException(sprintf('Directory "%s" was not created', $dir));
         }
 
@@ -70,6 +70,8 @@ class LocalFileAccount implements AcmeAccountInterface
             throw new StorageException('Failed to write keys to files.');
         }
 
+        chmod($privateKeyPath, 0600);
+
         return true;
     }
 
@@ -80,6 +82,8 @@ class LocalFileAccount implements AcmeAccountInterface
         if (file_put_contents($privateKeyPath, $pem) === false) {
             throw new StorageException('Failed to write private key to file.');
         }
+
+        chmod($privateKeyPath, 0600);
 
         // Derive and persist the new public key
         $privateKeyResource = openssl_pkey_get_private($pem);

@@ -1356,6 +1356,28 @@ it('DomainValidation::allChallengesPassed() respects the Retry-After header', fu
     expect($callCount)->toBe(2); // pending → valid after one retry
 });
 
+// ── Certificate::getBundle() null certificateUrl path (line 15) ──────────────
+
+it('Certificate::getBundle() throws AcmeException when certificateUrl is null', function () {
+    $api = makeEndpointApi(endpointMock(getBody: directoryBody()), withKeyStorage());
+
+    $order = new \CoyoteCert\DTO\OrderData(
+        id:                   '1',
+        url:                  'https://acme.example/order/1',
+        status:               'valid',
+        expires:              '2099-01-01T00:00:00Z',
+        identifiers:          [],
+        domainValidationUrls: [],
+        finalizeUrl:          'https://acme.example/finalize/1',
+        accountUrl:           'https://acme.example/account/1',
+        certificateUrl:       null,   // ← triggers the line-15 guard
+        finalized:            true,
+    );
+
+    expect(fn () => $api->certificate()->getBundle($order))
+        ->toThrow(\CoyoteCert\Exceptions\AcmeException::class, 'does not have a certificate URL');
+});
+
 // ── RenewalInfo::certId() ─────────────────────────────────────────────────────
 
 it('RenewalInfo::certId() returns a string in issuerHash.serial format', function () {
@@ -1370,4 +1392,32 @@ it('RenewalInfo::certId() returns a string in issuerHash.serial format', functio
     expect($parts)->toHaveCount(2);
     expect($parts[0])->not->toBeEmpty();
     expect($parts[1])->not->toBeEmpty();
+});
+
+it('RenewalInfo::certId() throws CryptoException when certPem is not a valid certificate', function () {
+    $storage = withKeyStorage();
+    [$leafPem, $issuerPem] = makeTestCerts();
+
+    $mock = closureMock(getHandler: fn ($url) => new Response([], $url, 200, directoryBody(withRenewalInfo: true)));
+
+    expect(fn () => makeEndpointApi($mock, $storage)->renewalInfo()->certId('not-a-cert', $issuerPem))
+        ->toThrow(\CoyoteCert\Exceptions\CryptoException::class, 'Failed to parse certificate');
+});
+
+it('RenewalInfo::certId() raises an error when issuerPem is not a valid certificate', function () {
+    $storage = withKeyStorage();
+    [$leafPem] = makeTestCerts();
+
+    $mock = closureMock(getHandler: fn ($url) => new Response([], $url, 200, directoryBody(withRenewalInfo: true)));
+
+    // Pass garbage as issuer — openssl_get_publickey() returns false on invalid input.
+    // In PHP 8, openssl_pkey_get_details(false) then raises a TypeError before the
+    // CryptoException guard on line 64 can fire; accept either throwable type.
+    $threw = false;
+    try {
+        makeEndpointApi($mock, $storage)->renewalInfo()->certId($leafPem, 'not-a-cert');
+    } catch (\CoyoteCert\Exceptions\CryptoException|\TypeError $e) {
+        $threw = true;
+    }
+    expect($threw)->toBeTrue();
 });

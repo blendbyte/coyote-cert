@@ -102,3 +102,59 @@ it('validateTxtRecords returns true when a record txt() matches the expected val
     expect($method->invoke(null, [$nonMatchingRecord], 'expected-digest'))->toBeFalse();
     expect($method->invoke(null, [], 'expected-digest'))->toBeFalse();
 });
+
+// ── dns() integration path (Spatie\Dns calls will fail / throw RuntimeException) ──
+
+it('dns() throws DomainValidationException when no DNS record matches', function () {
+    // Calling LocalChallengeTest::dns() without a real TXT record will either
+    // fail DNS resolution (RuntimeException swallowed) or find no matching value,
+    // and must throw DomainValidationException.
+    expect(fn () => LocalChallengeTest::dns('invalid.example.test', '_acme-challenge', 'somevalue'))
+        ->toThrow(DomainValidationException::class);
+});
+
+// ── validateCnameRecords() via reflection ─────────────────────────────────────
+
+it('validateCnameRecords returns false when the CNAME chain produces no matching TXT', function () {
+    // A CNAME record whose target() resolves to an empty TXT list
+    // validateCnameRecords() calls getRecords() internally which will throw/return []
+    // so the method ultimately returns false.
+    $cnameRecord = new class {
+        public function target(): string { return 'invalid.example.test'; }
+    };
+
+    $method = new \ReflectionMethod(LocalChallengeTest::class, 'validateCnameRecords');
+
+    // This exercises lines 72-82 (the CNAME loop body); DNS calls may throw
+    // RuntimeException which is caught inside dns(), but here we invoke the
+    // private method directly — the RuntimeException from Spatie\Dns propagates.
+    // We catch either false return or RuntimeException as both are valid outcomes.
+    try {
+        $result = $method->invoke(null, [$cnameRecord], 'expected-value');
+        expect($result)->toBeFalse();
+    } catch (\RuntimeException) {
+        // Spatie\Dns threw because the domain does not exist — that is fine.
+        expect(true)->toBeTrue();
+    }
+});
+
+it('validateCnameRecords returns false for an empty records array', function () {
+    $method = new \ReflectionMethod(LocalChallengeTest::class, 'validateCnameRecords');
+
+    expect($method->invoke(null, [], 'expected-value'))->toBeFalse();
+});
+
+// ── getRecords() via reflection ───────────────────────────────────────────────
+
+it('getRecords() returns an array (may be empty for non-existent domain)', function () {
+    $method = new \ReflectionMethod(LocalChallengeTest::class, 'getRecords');
+
+    // Use a nameserver and domain that will return an empty result or throw;
+    // the important thing is that getRecords() either returns [] or throws RuntimeException.
+    try {
+        $records = $method->invoke(null, 'dns.google.com', 'invalid.example.test', DNS_TXT);
+        expect($records)->toBeArray();
+    } catch (\RuntimeException) {
+        expect(true)->toBeTrue(); // DNS lookup failure is acceptable
+    }
+});

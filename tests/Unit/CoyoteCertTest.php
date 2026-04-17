@@ -193,6 +193,13 @@ it('issueOrRenew() returns existing cert when renewal is not needed', function (
     expect($result->certificate)->toBe('cert-pem');
 });
 
+it('issueOrRenew() calls issue() when renewal is needed', function () {
+    // needsRenewal() returns true (no storage) → line 380 `return $this->issue()` is hit
+    // → issue() throws at the "No domains" guard
+    expect(fn () => makeCoyote()->challenge(makeNoOpHandler())->issueOrRenew())
+        ->toThrow(AcmeException::class, 'No domains');
+});
+
 // ── renew() alias ─────────────────────────────────────────────────────────────
 
 it('renew() is an alias for issue() and throws when no domains are configured', function () {

@@ -124,6 +124,13 @@ it('generateNewKeys() throws StorageException when file write fails (read-only d
     }
 });
 
+it('savePrivateKey() throws CryptoException when the PEM is not a valid private key', function () {
+    $this->account->generateNewKeys(); // ensure directory exists
+
+    expect(fn () => $this->account->savePrivateKey('not-a-pem', KeyType::RSA_2048))
+        ->toThrow(\CoyoteCert\Exceptions\CryptoException::class, 'Cannot load private key');
+});
+
 it('getKey() throws StorageException when file exists but cannot be read (mode 0000)', function () {
     $this->account->generateNewKeys();
 

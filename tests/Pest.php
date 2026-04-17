@@ -36,6 +36,85 @@ namespace CoyoteCert\Challenge\Dns {
     }
 }
 
+// ── Override curl_* in the Challenge\Dns\Internal namespace (unit tests only) ──
+// JsonHttpClient::send() calls curl_*() without a backslash, so PHP resolves
+// them in the current namespace first. Defining stubs here lets unit tests
+// exercise the full send() code path without a real HTTP server.
+//
+// Activate a fixture by setting $GLOBALS['__test_curl'] to an array:
+//   init   => bool       (false = curl_init() failure; default: true)
+//   body   => string|false (false = connection error body; default: '')
+//   status => int        (HTTP status code; default: 200)
+//   error  => string     (curl_error() output; default: '')
+// Unset $GLOBALS['__test_curl'] (or leave it unset) to use real curl.
+
+namespace CoyoteCert\Challenge\Dns\Internal {
+    function curl_init(string $url = ''): object|false
+    {
+        if (!isset($GLOBALS['__test_curl'])) {
+            return \curl_init($url);
+        }
+
+        if (!($GLOBALS['__test_curl']['init'] ?? true)) {
+            return false;
+        }
+
+        return new \stdClass();
+    }
+
+    function curl_setopt_array(object|false $handle, array $options): bool
+    {
+        if (isset($GLOBALS['__test_curl'])) {
+            return true;
+        }
+
+        return \curl_setopt_array($handle, $options);
+    }
+
+    function curl_setopt(object|false $handle, int $option, mixed $value): bool
+    {
+        if (isset($GLOBALS['__test_curl'])) {
+            return true;
+        }
+
+        return \curl_setopt($handle, $option, $value);
+    }
+
+    function curl_exec(object|false $handle): string|bool
+    {
+        if (isset($GLOBALS['__test_curl'])) {
+            return $GLOBALS['__test_curl']['body'] ?? '';
+        }
+
+        return \curl_exec($handle);
+    }
+
+    function curl_getinfo(object|false $handle, int $option = 0): mixed
+    {
+        if (isset($GLOBALS['__test_curl'])) {
+            return $GLOBALS['__test_curl']['status'] ?? 200;
+        }
+
+        return \curl_getinfo($handle, $option);
+    }
+
+    function curl_error(object|false $handle): string
+    {
+        if (isset($GLOBALS['__test_curl'])) {
+            return $GLOBALS['__test_curl']['error'] ?? '';
+        }
+
+        return \curl_error($handle);
+    }
+
+    function curl_close(object|false $handle): void
+    {
+        if (!isset($GLOBALS['__test_curl'])) {
+            \curl_close($handle);
+        }
+    }
+}
+
 // ── Global helpers ────────────────────────────────────────────────────────────
 
 namespace {

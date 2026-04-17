@@ -109,6 +109,32 @@ it('propagationTimeout clamps zero and negative values to one', function () {
     expect($prop->getValue((new TestDns01Handler())->propagationTimeout(30)))->toBe(30);
 });
 
+it('propagationDelay executes the sleep branch when the delay is positive', function () {
+    $handler = (new TestDns01Handler())->propagationDelay(5);
+    $handler->deploy('example.com', 'tok', 'keyauth');
+
+    // sleep() is a no-op in the test namespace — verifies the branch runs cleanly.
+    expect($handler->deployed)->toHaveCount(1);
+});
+
+it('real pollForTxtRecord fails open when the DNS lookup cannot be satisfied', function () {
+    $handler = new class extends AbstractDns01Handler {
+        public function deploy(string $domain, string $token, string $keyAuth): void
+        {
+            $this->awaitPropagation($domain, $keyAuth);
+        }
+
+        public function cleanup(string $domain, string $token): void {}
+    };
+
+    // Does not override pollForTxtRecord() — exercises the real implementation.
+    // DNS fails for .invalid; propagationTimeout(1) keeps the poll window short.
+    // Fails open: no exception is thrown when the timeout is reached.
+    expect(
+        fn() => $handler->propagationTimeout(1)->deploy('test.invalid', '', 'no-such-record'),
+    )->not->toThrow(\Throwable::class);
+});
+
 // ── DNS propagation check ─────────────────────────────────────────────────────
 
 it('pollForTxtRecord is called by default after deploy', function () {

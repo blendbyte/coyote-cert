@@ -146,3 +146,72 @@ it('throws ChallengeException on HTTP 5xx', function () {
     expect(fn() => $client->request('GET', '/zones'))
         ->toThrow(ChallengeException::class, 'HTTP 500');
 });
+
+// ── Real send() via curl namespace stubs ──────────────────────────────────────
+// The following tests exercise JsonHttpClient::send() directly (no TestableJsonHttpClient
+// override). The curl_* stubs in tests/Pest.php intercept all curl calls so no
+// real HTTP connection is made. $GLOBALS['__test_curl'] activates the stubs;
+// afterEach() clears it so fixture state never leaks across tests.
+
+afterEach(function () {
+    unset($GLOBALS['__test_curl']);
+});
+
+it('send() throws when curl fails to initialise', function () {
+    $GLOBALS['__test_curl'] = ['init' => false];
+    $client                 = new JsonHttpClient('https://api.example.com');
+
+    expect(fn() => $client->request('GET', '/zones'))
+        ->toThrow(ChallengeException::class, 'Failed to initialise cURL');
+});
+
+it('send() throws on connection error', function () {
+    $GLOBALS['__test_curl'] = ['body' => false, 'status' => 0, 'error' => 'Connection timed out'];
+    $client                 = new JsonHttpClient('https://api.example.com');
+
+    expect(fn() => $client->request('GET', '/zones'))
+        ->toThrow(ChallengeException::class, 'Connection timed out');
+});
+
+it('send() decodes a successful JSON response', function () {
+    $GLOBALS['__test_curl'] = ['body' => '{"id":"zone-1"}', 'status' => 200];
+    $client                 = new JsonHttpClient('https://api.example.com');
+
+    expect($client->request('GET', '/zones'))->toBe(['id' => 'zone-1']);
+});
+
+it('send() returns empty array for an empty body', function () {
+    $GLOBALS['__test_curl'] = ['body' => '', 'status' => 200];
+    $client                 = new JsonHttpClient('https://api.example.com');
+
+    expect($client->request('DELETE', '/records/1'))->toBe([]);
+});
+
+it('send() throws on HTTP 4xx from the real send path', function () {
+    $GLOBALS['__test_curl'] = ['body' => '{"error":"forbidden"}', 'status' => 403];
+    $client                 = new JsonHttpClient('https://api.example.com');
+
+    expect(fn() => $client->request('POST', '/zones'))
+        ->toThrow(ChallengeException::class, 'HTTP 403');
+});
+
+it('send() exercises the POST-with-body curl branch', function () {
+    $GLOBALS['__test_curl'] = ['body' => '{"created":true}', 'status' => 200];
+    $client                 = new JsonHttpClient('https://api.example.com');
+
+    expect($client->request('POST', '/records', ['type' => 'TXT']))->toBe(['created' => true]);
+});
+
+it('send() exercises the POST-without-body curl branch', function () {
+    $GLOBALS['__test_curl'] = ['body' => '{"ok":true}', 'status' => 200];
+    $client                 = new JsonHttpClient('https://api.example.com');
+
+    expect($client->request('POST', '/trigger'))->toBe(['ok' => true]);
+});
+
+it('send() exercises the DELETE curl branch', function () {
+    $GLOBALS['__test_curl'] = ['body' => '', 'status' => 200];
+    $client                 = new JsonHttpClient('https://api.example.com');
+
+    expect($client->request('DELETE', '/records/42'))->toBe([]);
+});

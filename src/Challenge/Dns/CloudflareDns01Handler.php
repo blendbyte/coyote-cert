@@ -30,7 +30,7 @@ class CloudflareDns01Handler extends AbstractDns01Handler
     private JsonHttpClient $httpClient;
 
     public function __construct(
-        private readonly string $apiToken,
+        string $apiToken,
         private readonly ?string $zoneId = null,
         ?JsonHttpClient $httpClient = null,
     ) {

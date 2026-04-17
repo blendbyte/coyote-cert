@@ -1,13 +1,23 @@
 <?php
 
-// ── Override sleep() in the Endpoints namespace ───────────────────────────────
+// ── Override sleep() in the Endpoints namespace (unit tests only) ────────────
 // Polling loops in DomainValidation::allChallengesPassed() and
 // Order::waitUntilValid() call sleep() without a namespace prefix, so PHP
 // first looks for a function in the current (CoyoteCert\Endpoints) namespace.
 // Defining one here turns every sleep() call in that namespace into a no-op,
 // keeping unit tests fast.
+//
+// We only do this when the Unit testsuite is active — integration tests must
+// use the real sleep() so Pebble has time to process validations between polls.
 namespace CoyoteCert\Endpoints {
-    function sleep(int $seconds): void {}
+    function sleep(int $seconds): void
+    {
+        if (!defined('COYOTE_INTEGRATION_TESTS')) {
+            return; // no-op for unit tests
+        }
+
+        \sleep($seconds); // real sleep for integration tests
+    }
 }
 
 // ── Global helpers ────────────────────────────────────────────────────────────
@@ -17,6 +27,12 @@ use CoyoteCert\Provider\Pebble;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)->in('Unit', 'Integration');
+
+// Mark the integration test processes so the sleep() override in
+// CoyoteCert\Endpoints stays real (Pebble needs actual wait time between polls).
+pest()->beforeAll(function () {
+    define('COYOTE_INTEGRATION_TESTS', true);
+})->in('Integration');
 
 // ── Shared key fixtures (pre-generated to avoid macOS EC key generation issues) ──
 

@@ -17,65 +17,46 @@ ACME (Automatic Certificate Management Environment) is the protocol behind free,
 
 ## Why CoyoteCert
 
-### Full RFC 8555 + RFC 9773 compliance
-
-CoyoteCert covers the full ACME v2 spec, not just the happy path. Proper nonce handling with automatic retry on `badNonce`, JWS signing for every request, EAB for CAs that require it, and ARI (Automatic Renewal Information, RFC 9773) so renewal windows are guided by the CA rather than a fixed day count.
-
-### ECDSA-first key management
-
-Keys default to EC P-256, which modern CAs recommend for speed and compact size. EC P-384, RSA-2048, and RSA-4096 are also supported. Each key type gets the right JWS algorithm (ES256, ES384, RS256), so requests go through first time even with strict CAs.
-
 ### Works with every major CA out of the box
 
 Built-in providers for Let's Encrypt, ZeroSSL, Google Trust Services, SSL.com, and Buypass, with full EAB support. ZeroSSL auto-provisions EAB credentials from your API key, so no copy-pasting tokens. A `CustomProvider` handles any other ACME-compliant CA.
+
+### Three storage backends, fully swappable
+
+Filesystem with file locking, PDO (MySQL, PostgreSQL, SQLite), and in-memory for testing. All three share the same interface, so switching backends doesn't touch your issuance code.
 
 ### dns-persist-01: renewals without DNS propagation delays
 
 CoyoteCert introduces `dns-persist-01`: deploy the TXT record once, leave it in place, and every subsequent renewal validates against it immediately. No DNS propagation wait on every 90-day cycle.
 
-### ACME profiles and short-lived certificates
+### Fails fast, before it costs you
 
-Let's Encrypt's `shortlived` profile issues 6-day certificates with no OCSP or CRL requirements. CoyoteCert passes the profile through and silently ignores it for CAs that don't support profiles yet.
-
-### IP address certificates (RFC 8738)
-
-Pass an IP address to `->identifiers()` and CoyoteCert handles the rest: `type: ip` on the ACME order, `IP:` SAN entries in the CSR. Mix hostnames and IPs freely in the same call. Useful for internal services, load balancer VIPs, and edge nodes where a hostname isn't always available.
-
-### Swappable HTTP client (PSR-18)
-
-The built-in curl client needs no extra dependencies. Need proxy support, custom middleware, or framework integration? Swap it for any PSR-18 client (Symfony HttpClient, Guzzle, anything else) with one builder call.
-
-### Three storage backends, fully swappable
-
-Filesystem with file locking, PDO (MySQL, PostgreSQL, SQLite) with dialect-aware upserts, and in-memory for testing. All three share the same interface, so switching backends doesn't touch your issuance code.
+Before submitting an order, CoyoteCert checks CAA DNS records for every domain. If a record blocks the chosen CA, you get an immediate `CaaException` naming the domain. It also does a pre-flight fetch of the HTTP token or DNS TXT record before asking the CA to validate. Misconfigured servers and propagation delays are caught locally. No wasted rate-limit attempts, no surprise failures.
 
 ### Typed exceptions for every failure mode
 
-`RateLimitException` carries the CA's `Retry-After` seconds so your retry logic is precise. `AuthException` tells you credentials failed, not a transient error. `AcmeException::getSubproblems()` surfaces RFC 8555 §6.7 per-identifier errors so a multi-domain order can report exactly which domains were rejected and why. All exceptions share a common base so a single `catch` still works when you don't need the detail.
+`RateLimitException` carries the CA's `Retry-After` seconds so your retry logic is precise. `AuthException` means bad credentials, not a transient error. `AcmeException::getSubproblems()` tells you exactly which domain in a multi-domain order was rejected and why.
 
-### CAA pre-check
+### ACME profiles and short-lived certificates
 
-Before submitting an order, CoyoteCert queries CAA DNS records for every requested domain. If a record exists and excludes the chosen CA, you get an immediate `CaaException` naming the blocking domain. No wasted rate-limit attempt, no waiting for an ACME order to fail minutes later. The check follows RFC 8659 tree-walking, handles `issuewild` tags for wildcard domains, and respects parameter extensions (e.g. `letsencrypt.org; validationmethods=http-01`). CAA identifiers are built into every provider; `->skipCaaCheck()` opts out when DNS is internal or split-horizon.
+Let's Encrypt's `shortlived` profile issues 6-day certificates with no OCSP or CRL requirements. CoyoteCert passes the profile through and silently ignores it for CAs that don't support it yet.
 
-### Pre-flight self-test
+### Full RFC 8555 + RFC 9773 compliance
 
-Before asking the CA to validate, CoyoteCert does its own check first: it fetches the HTTP token or looks up the DNS TXT record itself. Misconfigured servers and propagation delays get caught before they cost you a rate-limit attempt. Look before you leap.
-
-### 94 %+ test coverage with real CA integration tests
-
-Every code path has unit tests with mocked responses. The integration suite runs against a live [Pebble](https://github.com/letsencrypt/pebble) server in CI across PHP 8.3, 8.4, and 8.5. No mock-only false confidence.
+Proper nonce handling with automatic retry on `badNonce`, JWS signing for every request, EAB for CAs that require it, and ARI (RFC 9773) so renewal windows are guided by the CA rather than a fixed day count.
 
 ### CA-independent: no hidden defaults
 
 CoyoteCert has no default CA. Every issuance call requires you to pass a provider explicitly. Choosing a CA involves real trade-offs (trust store coverage, rate limits, certificate lifetime, EAB requirements, data residency) and that decision belongs to you, not the library.
 
-### Modern, idiomatic PHP
+### Also
 
-PHP 8.3+, strict types, backed enums, readonly constructor promotion, named arguments throughout. No magic methods, no global state, no hidden singletons.
-
-### Truly independent
-
-CoyoteCert has no affiliation with any certificate authority, is not maintained by one or financed by one. We run it on our own projects and for our customers, with whichever CA or provider the job calls for. We have a direct stake in it working well across all of them.
+- **ECDSA-first**: keys default to EC P-256; EC P-384, RSA-2048, and RSA-4096 are also supported.
+- **IP address certificates** (RFC 8738): pass an IP to `->identifiers()` and it just works. `type: ip` on the order, `IP:` SANs in the CSR.
+- **PSR-18 HTTP client**: the built-in curl client needs no extra dependencies; swap it for any PSR-18 client with one builder call.
+- **94%+ test coverage**: unit tests with mocked responses plus a live [Pebble](https://github.com/letsencrypt/pebble) integration suite across PHP 8.3, 8.4, and 8.5. No mock-only false confidence.
+- **Modern PHP**: strict types, backed enums, readonly constructor promotion. No magic methods, no global state.
+- **Truly independent**: no CA affiliation, not maintained or financed by one.
 
 ---
 

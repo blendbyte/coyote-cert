@@ -203,6 +203,7 @@ Point CoyoteCert at any ACME-compliant directory URL.
 
 ```php
 use CoyoteCert\Provider\CustomProvider;
+use CoyoteCert\Enums\EabAlgorithm;
 
 CoyoteCert::with(new CustomProvider(
     directoryUrl:      'https://acme.example.com/directory',
@@ -211,6 +212,7 @@ CoyoteCert::with(new CustomProvider(
     eabHmac:           'hmac',
     verifyTls:         true,
     profilesSupported: false,
+    eabAlgorithm:      EabAlgorithm::HS256, // HS256 (default), HS384, or HS512
 ))
 ```
 
@@ -501,6 +503,8 @@ CoyoteCert::with(new LetsEncrypt())
 ```
 
 `*.example.com` covers one label deep (`sub.example.com`) but not the apex (`example.com`). Include both if you need both.
+
+`->domains()` validates every entry against RFC-compliant hostname syntax and throws an `InvalidArgumentException` immediately for malformed input, so misconfigured domain lists are caught before any CA communication starts.
 
 ---
 
@@ -825,14 +829,17 @@ $ariUrl = $api->directory()->renewalInfo(); // null if not supported
 ```php
 use CoyoteCert\Provider\Pebble;
 
-// Default — connects to localhost:14000 with TLS verification disabled
+// Default — connects to localhost:14000, TLS verification enabled
 CoyoteCert::with(new Pebble())
 
+// Pebble uses a self-signed CA, so disable TLS verification explicitly
+CoyoteCert::with(new Pebble(verifyTls: false))
+
 // Custom URL
-CoyoteCert::with(new Pebble(url: 'https://pebble.internal:14000/dir'))
+CoyoteCert::with(new Pebble(url: 'https://pebble.internal:14000/dir', verifyTls: false))
 
 // With EAB (if Pebble is configured for it)
-CoyoteCert::with(new Pebble(eab: true, eabKid: 'kid', eabHmac: 'hmac'))
+CoyoteCert::with(new Pebble(verifyTls: false, eab: true, eabKid: 'kid', eabHmac: 'hmac'))
 ```
 
 Docker Compose example for local development:

@@ -104,11 +104,13 @@ abstract class Endpoint
     /** @param array<string, mixed> $additionalContext */
     protected function logResponse(string $level, string $message, Response $response, array $additionalContext = []): void
     {
+        $body = $response->jsonBody();
+
         $this->client->logger($level, $message, array_merge([
-            'url'     => $response->getRequestedUrl(),
-            'status'  => $response->getHttpResponseCode(),
-            'headers' => $response->getHeaders(),
-            'body'    => $response->getBody(),
+            'url'    => $response->getRequestedUrl(),
+            'status' => $response->getHttpResponseCode(),
+            'type'   => $body['type'] ?? null,
+            'detail' => $body['detail'] ?? null,
         ], $additionalContext));
     }
 }

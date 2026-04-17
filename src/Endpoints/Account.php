@@ -199,7 +199,7 @@ class Account extends Endpoint
     private function buildEab(string $jwkJson, string $url, EabCredentials $eab): array
     {
         $protected64 = Base64::urlSafeEncode(json_encode([
-            'alg' => 'HS256',
+            'alg' => $eab->algorithm->value,
             'kid' => $eab->kid,
             'url' => $url,
         ], JSON_THROW_ON_ERROR));
@@ -210,7 +210,7 @@ class Account extends Endpoint
         return [
             'protected' => $protected64,
             'payload'   => $payload64,
-            'signature' => Base64::urlSafeEncode(hash_hmac('sha256', $protected64 . '.' . $payload64, $hmacKey, true)),
+            'signature' => Base64::urlSafeEncode(hash_hmac($eab->algorithm->hashAlgorithm(), $protected64.'.'.$payload64, $hmacKey, true)),
         ];
     }
 

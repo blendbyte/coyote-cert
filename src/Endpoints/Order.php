@@ -22,12 +22,14 @@ class Order extends Endpoint
     {
         $identifiers = [];
         foreach ($domains as $domain) {
-            if (preg_match_all('~(\*\.)~', $domain) > 1) {
+            $isIp = (bool) filter_var($domain, FILTER_VALIDATE_IP);
+
+            if (!$isIp && preg_match_all('~(\*\.)~', $domain) > 1) {
                 throw new AcmeException('Cannot create orders with multiple wildcards in one domain.');
             }
 
             $identifiers[] = [
-                'type'  => 'dns',
+                'type'  => $isIp ? 'ip' : 'dns',
                 'value' => $domain,
             ];
         }

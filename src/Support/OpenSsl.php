@@ -51,8 +51,10 @@ class OpenSsl
     {
         $dn = ['commonName' => $domains[0]];
 
-        $san = implode(',', array_map(function (string $dns): string {
-            return 'DNS:' . $dns;
+        $san = implode(',', array_map(function (string $identifier): string {
+            return filter_var($identifier, FILTER_VALIDATE_IP)
+                ? 'IP:' . $identifier
+                : 'DNS:' . $identifier;
         }, $domains));
 
         $tempFile = tmpfile();

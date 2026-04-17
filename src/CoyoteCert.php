@@ -29,7 +29,7 @@ use Psr\Log\LoggerInterface;
  *
  *   $cert = CoyoteCert::with(new LetsEncrypt())
  *       ->storage(new FilesystemStorage('/var/certs'))
- *       ->domains(['example.com', 'www.example.com'])
+ *       ->identifiers(['example.com', 'www.example.com'])
  *       ->challenge(new Http01Handler('/var/www/html'))
  *       ->issue();
  *
@@ -37,7 +37,7 @@ use Psr\Log\LoggerInterface;
  *
  *   $cert = CoyoteCert::with(new LetsEncrypt())
  *       ->storage(new FilesystemStorage('/var/certs'))
- *       ->domains('example.com')
+ *       ->identifiers('example.com')
  *       ->challenge(new Http01Handler('/var/www/html'))
  *       ->issueOrRenew();
  */
@@ -112,14 +112,14 @@ class CoyoteCert
         return $this;
     }
 
-    /** @param string|string[] $domains */
-    public function domains(array|string $domains): self
+    /** @param string|string[] $identifiers Domain names and/or IP addresses (RFC 8738). */
+    public function identifiers(array|string $identifiers): self
     {
-        $list = is_array($domains) ? array_values($domains) : [$domains];
+        $list = is_array($identifiers) ? array_values($identifiers) : [$identifiers];
 
         foreach ($list as $domain) {
-            if (!self::isValidDomain($domain)) {
-                throw new AcmeException(sprintf('Invalid domain name: "%s".', $domain));
+            if (!self::isValidDomain($domain) && !filter_var($domain, FILTER_VALIDATE_IP)) {
+                throw new AcmeException(sprintf('Invalid domain name or IP address: "%s".', $domain));
             }
         }
 
@@ -434,7 +434,7 @@ class CoyoteCert
     {
         if (empty($this->domains)) {
             throw new AcmeException(
-                'No domains configured. Call ->domains() before issuing a certificate.',
+                'No identifiers configured. Call ->identifiers() before issuing a certificate.',
             );
         }
 

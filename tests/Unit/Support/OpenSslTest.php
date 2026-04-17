@@ -87,3 +87,17 @@ it('generateCsr works with an EC key', function () {
 
     expect($csr)->toContain('CERTIFICATE REQUEST');
 });
+
+it('generateCsr uses IP: SAN prefix for IPv4 addresses', function () {
+    $key = OpenSsl::generateKey(KeyType::EC_P256);
+    $csr = OpenSsl::generateCsr(['192.0.2.1'], $key);
+
+    expect($csr)->toContain('CERTIFICATE REQUEST');
+});
+
+it('generateCsr handles mixed domains and IPs', function () {
+    $key = OpenSsl::generateKey(KeyType::EC_P256);
+    $csr = OpenSsl::generateCsr(['example.com', '192.0.2.1'], $key);
+
+    expect($csr)->toContain('CERTIFICATE REQUEST');
+});

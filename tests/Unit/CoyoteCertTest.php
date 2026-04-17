@@ -102,45 +102,60 @@ it('challenge() returns self (fluent)', function () {
     expect($c->challenge(makeNoOpHandler()))->toBe($c);
 });
 
-it('domains() accepts a string', function () {
+it('identifiers() accepts a string', function () {
     $c = makeCoyote();
-    expect($c->domains('example.com'))->toBe($c);
+    expect($c->identifiers('example.com'))->toBe($c);
 });
 
-it('domains() accepts an array', function () {
+it('identifiers() accepts an array', function () {
     $c = makeCoyote();
-    expect($c->domains(['example.com', 'www.example.com']))->toBe($c);
+    expect($c->identifiers(['example.com', 'www.example.com']))->toBe($c);
 });
 
-it('domains() accepts a wildcard domain', function () {
+it('identifiers() accepts a wildcard domain', function () {
     $c = makeCoyote();
-    expect($c->domains('*.example.com'))->toBe($c);
+    expect($c->identifiers('*.example.com'))->toBe($c);
+});
+
+it('identifiers() accepts an IPv4 address', function () {
+    $c = makeCoyote();
+    expect($c->identifiers('192.0.2.1'))->toBe($c);
+});
+
+it('identifiers() accepts an IPv6 address', function () {
+    $c = makeCoyote();
+    expect($c->identifiers('2001:db8::1'))->toBe($c);
+});
+
+it('identifiers() accepts a mix of domain names and IP addresses', function () {
+    $c = makeCoyote();
+    expect($c->identifiers(['example.com', '192.0.2.1', '2001:db8::1']))->toBe($c);
 });
 
 // ── SEC-05: domain name validation ───────────────────────────────────────────
 
-it('domains() throws AcmeException for a domain containing a newline', function () {
-    expect(fn() => makeCoyote()->domains("evil.com\ninjected"))
+it('identifiers() throws AcmeException for a domain containing a newline', function () {
+    expect(fn() => makeCoyote()->identifiers("evil.com\ninjected"))
         ->toThrow(AcmeException::class, 'Invalid domain name');
 });
 
-it('domains() throws AcmeException for a domain containing a slash', function () {
-    expect(fn() => makeCoyote()->domains('evil.com/path'))
+it('identifiers() throws AcmeException for a domain containing a slash', function () {
+    expect(fn() => makeCoyote()->identifiers('evil.com/path'))
         ->toThrow(AcmeException::class, 'Invalid domain name');
 });
 
-it('domains() throws AcmeException for a bare TLD', function () {
-    expect(fn() => makeCoyote()->domains('com'))
+it('identifiers() throws AcmeException for a bare TLD', function () {
+    expect(fn() => makeCoyote()->identifiers('com'))
         ->toThrow(AcmeException::class, 'Invalid domain name');
 });
 
-it('domains() throws AcmeException for an empty string', function () {
-    expect(fn() => makeCoyote()->domains(''))
+it('identifiers() throws AcmeException for an empty string', function () {
+    expect(fn() => makeCoyote()->identifiers(''))
         ->toThrow(AcmeException::class, 'Invalid domain name');
 });
 
-it('domains() throws AcmeException for a double wildcard', function () {
-    expect(fn() => makeCoyote()->domains('*.*.example.com'))
+it('identifiers() throws AcmeException for a double wildcard', function () {
+    expect(fn() => makeCoyote()->identifiers('*.*.example.com'))
         ->toThrow(AcmeException::class, 'Invalid domain name');
 });
 
@@ -165,13 +180,13 @@ it('detectChallengeType() throws when the handler supports no known challenge ty
 
 // ── validate() / issue() guard ────────────────────────────────────────────────
 
-it('issue() throws when no domains are configured', function () {
+it('issue() throws when no identifiers are configured', function () {
     expect(fn() => makeCoyote()->challenge(makeNoOpHandler())->issue())
-        ->toThrow(AcmeException::class, 'No domains');
+        ->toThrow(AcmeException::class, 'No identifiers');
 });
 
 it('issue() throws when no challenge handler is configured', function () {
-    expect(fn() => makeCoyote()->domains('example.com')->issue())
+    expect(fn() => makeCoyote()->identifiers('example.com')->issue())
         ->toThrow(AcmeException::class, 'No challenge handler');
 });
 
@@ -185,14 +200,14 @@ it('revoke() throws when no storage is configured', function () {
 // ── needsRenewal() ────────────────────────────────────────────────────────────
 
 it('needsRenewal() returns true when no storage is configured', function () {
-    expect(makeCoyote()->domains('example.com')->needsRenewal())->toBeTrue();
+    expect(makeCoyote()->identifiers('example.com')->needsRenewal())->toBeTrue();
 });
 
 it('needsRenewal() returns true when no certificate is stored', function () {
     $storage = new InMemoryStorage();
 
     expect(
-        makeCoyote()->domains('example.com')->storage($storage)->needsRenewal(),
+        makeCoyote()->identifiers('example.com')->storage($storage)->needsRenewal(),
     )->toBeTrue();
 });
 
@@ -201,7 +216,7 @@ it('needsRenewal() returns false when certificate has plenty of time remaining',
     $storage->saveCertificate('example.com', makeCoyoteCert(expiresInDays: 90));
 
     expect(
-        makeCoyote()->domains('example.com')->storage($storage)->needsRenewal(30),
+        makeCoyote()->identifiers('example.com')->storage($storage)->needsRenewal(30),
     )->toBeFalse();
 });
 
@@ -210,7 +225,7 @@ it('needsRenewal() returns true when certificate expires within the threshold', 
     $storage->saveCertificate('example.com', makeCoyoteCert(expiresInDays: 10));
 
     expect(
-        makeCoyote()->domains('example.com')->storage($storage)->needsRenewal(30),
+        makeCoyote()->identifiers('example.com')->storage($storage)->needsRenewal(30),
     )->toBeTrue();
 });
 
@@ -222,7 +237,7 @@ it('issueOrRenew() returns existing cert when renewal is not needed', function (
     $storage->saveCertificate('example.com', $cert);
 
     $result = makeCoyote()
-        ->domains('example.com')
+        ->identifiers('example.com')
         ->storage($storage)
         ->challenge(makeNoOpHandler())
         ->issueOrRenew(30);
@@ -232,17 +247,17 @@ it('issueOrRenew() returns existing cert when renewal is not needed', function (
 
 it('issueOrRenew() calls issue() when renewal is needed', function () {
     // needsRenewal() returns true (no storage) → line 380 `return $this->issue()` is hit
-    // → issue() throws at the "No domains" guard
+    // → issue() throws at the "No identifiers" guard
     expect(fn() => makeCoyote()->challenge(makeNoOpHandler())->issueOrRenew())
-        ->toThrow(AcmeException::class, 'No domains');
+        ->toThrow(AcmeException::class, 'No identifiers');
 });
 
 // ── renew() alias ─────────────────────────────────────────────────────────────
 
-it('renew() is an alias for issue() and throws when no domains are configured', function () {
-    // renew() delegates to issue() → validate() → throws "No domains"
+it('renew() is an alias for issue() and throws when no identifiers are configured', function () {
+    // renew() delegates to issue() → validate() → throws "No identifiers"
     expect(fn() => makeCoyote()->challenge(makeNoOpHandler())->renew())
-        ->toThrow(AcmeException::class, 'No domains');
+        ->toThrow(AcmeException::class, 'No identifiers');
 });
 
 // ── ariWindow() (tested via needsRenewal()) ───────────────────────────────────
@@ -254,7 +269,7 @@ it('needsRenewal() falls back to remainingDays when caBundle has no PEM cert hea
     $storage->saveCertificate('example.com', makeCoyoteCert(caBundle: 'not-a-pem', expiresInDays: 90));
 
     expect(
-        makeCoyote()->domains('example.com')->storage($storage)->needsRenewal(30),
+        makeCoyote()->identifiers('example.com')->storage($storage)->needsRenewal(30),
     )->toBeFalse();
 });
 
@@ -277,7 +292,7 @@ it('needsRenewal() returns null from ariWindow when API call throws (catch block
 
     $result = makeCoyote()
         ->httpClient($failingPsr18, $factory, $factory)
-        ->domains('example.com')
+        ->identifiers('example.com')
         ->storage($storage)
         ->needsRenewal(30);
 
@@ -343,7 +358,7 @@ it('needsRenewal() returns $window->isOpen() when ARI returns a valid renewal wi
 
     $result = makeCoyote()
         ->httpClient($mockClient, $factory, $factory)
-        ->domains('example.com')
+        ->identifiers('example.com')
         ->storage($storage)
         ->needsRenewal(30);
 

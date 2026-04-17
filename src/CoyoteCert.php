@@ -117,7 +117,15 @@ class CoyoteCert
     /** @param string|string[] $domains */
     public function domains(array|string $domains): self
     {
-        $this->domains = is_array($domains) ? array_values($domains) : [$domains];
+        $list = is_array($domains) ? array_values($domains) : [$domains];
+
+        foreach ($list as $domain) {
+            if (!self::isValidDomain($domain)) {
+                throw new AcmeException(sprintf('Invalid domain name: "%s".', $domain));
+            }
+        }
+
+        $this->domains = $list;
 
         return $this;
     }
@@ -410,6 +418,19 @@ class CoyoteCert
         }
 
         return $m[1];
+    }
+
+    private static function isValidDomain(string $domain): bool
+    {
+        // Strip one leading wildcard label before validating the rest.
+        $check = str_starts_with($domain, '*.') ? substr($domain, 2) : $domain;
+
+        // Each label: 1–63 chars, alphanumeric + hyphens, no leading/trailing hyphen.
+        // At least two labels required (bare TLDs are not valid identifiers for ACME).
+        return (bool) preg_match(
+            '/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/',
+            $check
+        );
     }
 
     private function validate(): void

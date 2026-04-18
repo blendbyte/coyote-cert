@@ -31,12 +31,18 @@ class LocalChallengeTest
 
     public static function dns(string $domain, string $name, string $value): void
     {
+        $challenge   = sprintf('%s.%s', $name, $domain);
+        $nameserver  = self::DEFAULT_NAMESERVER;
+        $foundTxt    = [];
+        $lookupError = null;
+
         try {
-            $challenge = sprintf('%s.%s', $name, $domain);
+            $nameserver = self::getNameserver($domain);
 
             // Try to validate TXT records directly.
-            $nameserver = self::getNameserver($domain);
             $txtRecords = self::getRecords($nameserver, $challenge, DNS_TXT);
+            $foundTxt   = array_map(fn($r) => $r->txt(), $txtRecords);
+
             if (self::validateTxtRecords($txtRecords, $value)) {
                 return;
             }
@@ -46,11 +52,18 @@ class LocalChallengeTest
             if (self::validateCnameRecords($cnameRecords, $value)) {
                 return;
             }
-        } catch (RuntimeException) {
-            // An exception can be thrown by the Dns class when a lookup fails.
+        } catch (RuntimeException $e) {
+            $lookupError = $e->getMessage();
         }
 
-        throw DomainValidationException::localDnsChallengeTestFailed($domain);
+        throw DomainValidationException::localDnsChallengeTestFailed(
+            $domain,
+            $challenge,
+            $nameserver,
+            $value,
+            $foundTxt,
+            $lookupError,
+        );
     }
 
     /** @param array<mixed> $records */

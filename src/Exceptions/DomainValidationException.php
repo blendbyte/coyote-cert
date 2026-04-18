@@ -13,11 +13,38 @@ class DomainValidationException extends AcmeException
         ));
     }
 
-    public static function localDnsChallengeTestFailed(string $domain): self
-    {
+    /**
+     * @param array<string> $found
+     */
+    public static function localDnsChallengeTestFailed(
+        string $domain,
+        string $record = '',
+        string $nameserver = '',
+        string $expected = '',
+        array $found = [],
+        ?string $lookupError = null,
+    ): self {
+        $base = sprintf("Couldn't fetch the correct DNS records for %s.", $domain);
+
+        if ($record === '') {
+            return new self($base);
+        }
+
+        if ($lookupError !== null) {
+            return new self(sprintf('%s DNS lookup failed: %s', $base, $lookupError));
+        }
+
+        $foundStr = empty($found)
+            ? '(none)'
+            : implode(', ', array_map(fn($v) => '"' . $v . '"', $found));
+
         return new self(sprintf(
-            "Couldn't fetch the correct DNS records for %s.",
-            $domain,
+            '%s Queried %s TXT at %s — expected: "%s" — found: %s',
+            $base,
+            $record,
+            $nameserver,
+            $expected,
+            $foundStr,
         ));
     }
 }

@@ -532,3 +532,36 @@ it('extractTokenAndKeyAuth() returns [name, value] for Dns01ValidationData', fun
     expect($token)->toBe('_acme-challenge');
     expect($auth)->toBe('expected-digest');
 });
+
+it('extractTokenAndKeyAuth() returns [filename, content] for Http01ValidationData', function () {
+    $coyote = makeCoyote();
+    $method = new \ReflectionMethod(CoyoteCert::class, 'extractTokenAndKeyAuth');
+
+    $http = new \CoyoteCert\DTO\Http01ValidationData(
+        identifier: 'example.com',
+        filename: 'token-file',
+        content: 'token.keyauth',
+        keyAuthorization: 'token.keyauth',
+    );
+
+    [$token, $auth] = $method->invoke($coyote, $http);
+
+    expect($token)->toBe('token-file');
+    expect($auth)->toBe('token.keyauth');
+});
+
+it('extractTokenAndKeyAuth() returns [token, keyAuthorization] for TlsAlpn01ValidationData', function () {
+    $coyote = makeCoyote();
+    $method = new \ReflectionMethod(CoyoteCert::class, 'extractTokenAndKeyAuth');
+
+    $tls = new \CoyoteCert\DTO\TlsAlpn01ValidationData(
+        identifier: 'example.com',
+        token: 'tls-token',
+        keyAuthorization: 'tls-token.keyauth',
+    );
+
+    [$token, $auth] = $method->invoke($coyote, $tls);
+
+    expect($token)->toBe('tls-token');
+    expect($auth)->toBe('tls-token.keyauth');
+});

@@ -750,6 +750,29 @@ it('DomainValidation::getValidationData() builds DNS_PERSIST validation item', f
     expect($data[0]->identifier)->toBe('example.com');
 });
 
+it('DomainValidation::getValidationData() builds TLS-ALPN validation item', function () {
+    $storage = withKeyStorage();
+    $api     = makeEndpointApi(endpointMock(), $storage);
+
+    $challenge = new DomainValidationData(
+        identifier: ['type' => 'dns', 'value' => 'example.com'],
+        status: 'pending',
+        expires: '2099-01-01T00:00:00Z',
+        file: [],
+        dns: [],
+        dnsPersist: [],
+        validationRecord: [],
+        tlsAlpn: ['type' => 'tls-alpn-01', 'token' => 'tls-tok', 'url' => 'https://acme.example/ch/4'],
+    );
+
+    $data = $api->domainValidation()->getValidationData([$challenge], AuthorizationChallengeEnum::TLS_ALPN);
+
+    expect($data)->toHaveCount(1);
+    expect($data[0])->toBeInstanceOf(\CoyoteCert\DTO\TlsAlpn01ValidationData::class);
+    expect($data[0]->token)->toBe('tls-tok');
+    expect($data[0]->identifier)->toBe('example.com');
+});
+
 it('DomainValidation::getValidationData() with null challenge type returns matching types', function () {
     $storage = withKeyStorage();
     $api     = makeEndpointApi(endpointMock(), $storage);

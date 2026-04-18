@@ -18,20 +18,22 @@ readonly class StoredCertificate
         public \DateTimeImmutable $expiresAt,
         public array              $domains,
         public KeyType            $keyType = KeyType::EC_P256,
+        public ?string            $providerSlug = null,
     ) {}
 
     /** @return array<string, mixed> */
     public function toArray(): array
     {
         return [
-            'certificate' => $this->certificate,
-            'private_key' => $this->privateKey,
-            'fullchain'   => $this->fullchain,
-            'ca_bundle'   => $this->caBundle,
-            'issued_at'   => $this->issuedAt->format(\DateTimeInterface::ATOM),
-            'expires_at'  => $this->expiresAt->format(\DateTimeInterface::ATOM),
-            'domains'     => $this->domains,
-            'key_type'    => $this->keyType->value,
+            'certificate'   => $this->certificate,
+            'private_key'   => $this->privateKey,
+            'fullchain'     => $this->fullchain,
+            'ca_bundle'     => $this->caBundle,
+            'issued_at'     => $this->issuedAt->format(\DateTimeInterface::ATOM),
+            'expires_at'    => $this->expiresAt->format(\DateTimeInterface::ATOM),
+            'domains'       => $this->domains,
+            'key_type'      => $this->keyType->value,
+            'provider_slug' => $this->providerSlug,
         ];
     }
 
@@ -47,6 +49,7 @@ readonly class StoredCertificate
             expiresAt: new \DateTimeImmutable($data['expires_at']),
             domains: $data['domains'],
             keyType: isset($data['key_type']) ? KeyType::from($data['key_type']) : KeyType::EC_P256,
+            providerSlug: $data['provider_slug'] ?? null,
         );
     }
 

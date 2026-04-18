@@ -310,7 +310,8 @@ class CoyoteCert
 
         $replacesId   = '';
         $existingCert = $this->storage?->getCertificate($this->domains[0], $this->certKeyType);
-        if ($existingCert !== null && ($issuerPem = $this->extractIssuerPem($existingCert)) !== null) {
+        $sameProvider = $existingCert?->providerSlug === $this->provider->getSlug();
+        if ($existingCert !== null && $sameProvider && ($issuerPem = $this->extractIssuerPem($existingCert)) !== null) {
             try {
                 $replacesId = $api->renewalInfo()->certId($existingCert->certificate, $issuerPem);
             } catch (\Throwable) {
@@ -412,6 +413,7 @@ class CoyoteCert
             expiresAt: $expiresAt,
             domains: $this->domains,
             keyType: $this->certKeyType,
+            providerSlug: $this->provider->getSlug(),
         );
 
         if ($this->storage !== null) {

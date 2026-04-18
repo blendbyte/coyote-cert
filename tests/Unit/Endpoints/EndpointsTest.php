@@ -884,42 +884,6 @@ it('DomainValidation::start() with localTest=true passes HTTP local check when b
     expect($response->getHttpResponseCode())->toBe(200);
 });
 
-it('DomainValidation::start() with localTest=true fails DNS check (covers DNS local-test path)', function () {
-    // DNS local-test always fails in unit tests (no real DNS TXT record deployed).
-    $api = makeEndpointApi(endpointMock(getBody: directoryBody()), withKeyStorage());
-
-    $dvd = new DomainValidationData(
-        identifier: ['type' => 'dns', 'value' => 'example.com'],
-        status: 'pending',
-        expires: '2099-01-01T00:00:00Z',
-        file: [],
-        dns: ['type' => 'dns-01', 'token' => 'unit-test-token', 'url' => 'https://acme.example/ch/2'],
-        dnsPersist: [],
-        validationRecord: [],
-    );
-
-    expect(fn() => $api->domainValidation()->start(makeAccountData(), $dvd, AuthorizationChallengeEnum::DNS, true))
-        ->toThrow(\CoyoteCert\Exceptions\DomainValidationException::class);
-});
-
-it('DomainValidation::start() with localTest=true fails DNS_PERSIST check (covers DNS_PERSIST local-test path)', function () {
-    // DNS_PERSIST local-test follows the same DNS path — always fails without a real record.
-    $api = makeEndpointApi(endpointMock(getBody: directoryBody()), withKeyStorage());
-
-    $dvd = new DomainValidationData(
-        identifier: ['type' => 'dns', 'value' => 'example.com'],
-        status: 'pending',
-        expires: '2099-01-01T00:00:00Z',
-        file: [],
-        dns: [],
-        dnsPersist: ['type' => 'dns-persist-01', 'token' => 'unit-test-token', 'url' => 'https://acme.example/ch/3'],
-        validationRecord: [],
-    );
-
-    expect(fn() => $api->domainValidation()->start(makeAccountData(), $dvd, AuthorizationChallengeEnum::DNS_PERSIST, true))
-        ->toThrow(\CoyoteCert\Exceptions\DomainValidationException::class);
-});
-
 it('DomainValidation::start() throws DomainValidationException when challenge data is empty', function () {
     $api = makeEndpointApi(endpointMock(getBody: directoryBody()), withKeyStorage());
 

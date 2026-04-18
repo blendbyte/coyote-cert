@@ -149,24 +149,13 @@ class DomainValidation extends Endpoint
 
         $keyAuthorization = $challengeData['token'] . '.' . $thumbprint;
 
-        if ($localTest) {
-            if ($authChallenge === AuthorizationChallengeEnum::HTTP) {
-                LocalChallengeTest::http(
-                    $domainValidation->identifier['value'],
-                    $challengeData['token'],
-                    $keyAuthorization,
-                    $this->client->getHttpClient(),
-                );
-            }
-
-            if ($authChallenge    === AuthorizationChallengeEnum::DNS
-                || $authChallenge === AuthorizationChallengeEnum::DNS_PERSIST) {
-                LocalChallengeTest::dns(
-                    $domainValidation->identifier['value'],
-                    '_acme-challenge',
-                    DnsDigest::make($challengeData['token'], $thumbprint),
-                );
-            }
+        if ($localTest && $authChallenge === AuthorizationChallengeEnum::HTTP) {
+            LocalChallengeTest::http(
+                $domainValidation->identifier['value'],
+                $challengeData['token'],
+                $keyAuthorization,
+                $this->client->getHttpClient(),
+            );
         }
 
         // RFC 8555 §7.5.1: challenge response payload must be an empty JSON object {}

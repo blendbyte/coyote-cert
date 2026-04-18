@@ -351,6 +351,7 @@ class CoyoteCert
 
         foreach ($validationData as $item) {
             [$token, $keyAuth] = $this->extractTokenAndKeyAuth($item);
+            $api->logger('info', sprintf('Deploy %s challenge for %s', $challengeType->value, $item->identifier));
             $challengeHandler->deploy($item->identifier, $token, $keyAuth);
         }
 

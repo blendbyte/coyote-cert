@@ -58,7 +58,7 @@ abstract class Endpoint
      * If the response contains a Replay-Nonce header, cache it so the next
      * request avoids an extra HEAD round-trip.
      */
-    private function cacheResponseNonce(Response $response): void
+    protected function cacheResponseNonce(Response $response): void
     {
         $nonce = $response->getHeader('replay-nonce', '');
 

@@ -150,12 +150,14 @@ class Account extends Endpoint
             $keyChangeUrl,
             $this->buildKeyChangeOuterJws($oldKeyPem, $newKeyPem, $oldJwk, $account->url, $keyChangeUrl),
         );
+        $this->cacheResponseNonce($response);
 
         if ($this->isBadNonce($response)) {
             $response = $this->client->getHttpClient()->post(
                 $keyChangeUrl,
                 $this->buildKeyChangeOuterJws($oldKeyPem, $newKeyPem, $oldJwk, $account->url, $keyChangeUrl),
             );
+            $this->cacheResponseNonce($response);
         }
 
         if ($response->getHttpResponseCode() === 200) {
@@ -303,9 +305,11 @@ class Account extends Endpoint
         $send = fn() => $this->client->getHttpClient()->post($url, $this->signPayload($payload));
 
         $response = $send();
+        $this->cacheResponseNonce($response);
 
         if ($this->isBadNonce($response)) {
             $response = $send();
+            $this->cacheResponseNonce($response);
         }
 
         return $response;

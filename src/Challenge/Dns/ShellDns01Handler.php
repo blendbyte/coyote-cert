@@ -82,15 +82,16 @@ class ShellDns01Handler extends AbstractDns01Handler
 
         fclose($pipes[0]);
         stream_get_contents($pipes[1]);
-        stream_get_contents($pipes[2]);
+        $stderr = trim(stream_get_contents($pipes[2]));
         fclose($pipes[1]);
         fclose($pipes[2]);
 
         $exitCode = proc_close($proc);
 
         if ($exitCode !== 0) {
+            $detail = $stderr !== '' ? ' — ' . $stderr : '';
             throw new ChallengeException(
-                sprintf('ShellDns01Handler: "%s" exited with code %d.', $cmdTemplate, $exitCode),
+                sprintf('ShellDns01Handler: "%s" exited with code %d.%s', $cmdTemplate, $exitCode, $detail),
             );
         }
     }

@@ -11,41 +11,40 @@ use CoyoteCert\Exceptions\StorageException;
  */
 class InMemoryStorage implements StorageInterface
 {
-    private ?string  $accountKey     = null;
-    private ?KeyType $accountKeyType = null;
+    /** @var array<string, array{pem: string, type: KeyType}> Keyed by provider slug. */
+    private array $accounts = [];
 
     /** @var array<string, StoredCertificate> Keyed as "{domain}:{KeyType->value}". */
     private array $certificates = [];
 
     // ── Account key ──────────────────────────────────────────────────────────
 
-    public function hasAccountKey(): bool
+    public function hasAccountKey(string $providerSlug): bool
     {
-        return $this->accountKey !== null;
+        return isset($this->accounts[$providerSlug]);
     }
 
-    public function getAccountKey(): string
+    public function getAccountKey(string $providerSlug): string
     {
-        if ($this->accountKey === null) {
+        if (!isset($this->accounts[$providerSlug])) {
             throw new StorageException('No account key in memory storage.');
         }
 
-        return $this->accountKey;
+        return $this->accounts[$providerSlug]['pem'];
     }
 
-    public function getAccountKeyType(): KeyType
+    public function getAccountKeyType(string $providerSlug): KeyType
     {
-        if ($this->accountKeyType === null) {
+        if (!isset($this->accounts[$providerSlug])) {
             throw new StorageException('No account key type in memory storage.');
         }
 
-        return $this->accountKeyType;
+        return $this->accounts[$providerSlug]['type'];
     }
 
-    public function saveAccountKey(string $pem, KeyType $type): void
+    public function saveAccountKey(string $providerSlug, string $pem, KeyType $type): void
     {
-        $this->accountKey     = $pem;
-        $this->accountKeyType = $type;
+        $this->accounts[$providerSlug] = ['pem' => $pem, 'type' => $type];
     }
 
     // ── Certificates ─────────────────────────────────────────────────────────

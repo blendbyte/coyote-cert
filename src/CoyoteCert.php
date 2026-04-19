@@ -18,7 +18,6 @@ use CoyoteCert\Http\Psr18Adapter;
 use CoyoteCert\Interfaces\ChallengeHandlerInterface;
 use CoyoteCert\Interfaces\HttpClientInterface;
 use CoyoteCert\Provider\AcmeProviderInterface;
-use CoyoteCert\Storage\FilesystemStorage;
 use CoyoteCert\Storage\StorageInterface;
 use CoyoteCert\Storage\StoredCertificate;
 use CoyoteCert\Support\CaaChecker;
@@ -301,7 +300,7 @@ class CoyoteCert
 
         $api = new Api(
             provider: $this->provider,
-            storage: $this->storageWithProvider(),
+            storage: $this->storage,
             logger: $this->logger,
             httpClient: $this->httpClient,
             accountKeyType: $this->accountKeyType,
@@ -335,14 +334,6 @@ class CoyoteCert
 
     // ── Private issue() helpers ───────────────────────────────────────────────
 
-    private function storageWithProvider(): ?StorageInterface
-    {
-        if ($this->storage instanceof FilesystemStorage) {
-            return $this->storage->withProviderSlug($this->provider->getSlug());
-        }
-
-        return $this->storage;
-    }
 
     private function getOrCreateAccount(Api $api): AccountData
     {
@@ -456,7 +447,7 @@ class CoyoteCert
 
         $api = new Api(
             provider: $this->provider,
-            storage: $this->storageWithProvider(),
+            storage: $this->storage,
             logger: $this->logger,
             httpClient: $this->httpClient,
             accountKeyType: $this->accountKeyType,

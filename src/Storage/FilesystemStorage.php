@@ -7,43 +7,34 @@ use CoyoteCert\Exceptions\StorageException;
 
 class FilesystemStorage implements StorageInterface
 {
-    /**
-     * @param string $directory Path where account keys and certificates are stored.
-     * @param string|null $providerSlug When set, account files are namespaced per CA
-     *                                  (e.g. "letsencrypt" → account-letsencrypt.pem).
-     *                                  Prevents different CAs from sharing the same key.
-     */
-    public function __construct(
-        private readonly string $directory,
-        private ?string $providerSlug = null,
-    ) {}
+    public function __construct(private readonly string $directory) {}
 
     // ── Account key ──────────────────────────────────────────────────────────
 
-    public function hasAccountKey(): bool
+    public function hasAccountKey(string $providerSlug): bool
     {
-        return file_exists($this->accountKeyPath())
-            && file_exists($this->accountMetaPath());
+        return file_exists($this->accountKeyPath($providerSlug))
+            && file_exists($this->accountMetaPath($providerSlug));
     }
 
-    public function getAccountKey(): string
+    public function getAccountKey(string $providerSlug): string
     {
-        return $this->readFile($this->accountKeyPath());
+        return $this->readFile($this->accountKeyPath($providerSlug));
     }
 
-    public function getAccountKeyType(): KeyType
+    public function getAccountKeyType(string $providerSlug): KeyType
     {
-        $meta = json_decode($this->readFile($this->accountMetaPath()), true, 512, JSON_THROW_ON_ERROR);
+        $meta = json_decode($this->readFile($this->accountMetaPath($providerSlug)), true, 512, JSON_THROW_ON_ERROR);
 
         return KeyType::from($meta['key_type']);
     }
 
-    public function saveAccountKey(string $pem, KeyType $type): void
+    public function saveAccountKey(string $providerSlug, string $pem, KeyType $type): void
     {
         $this->ensureDirectory();
-        $this->writeFile($this->accountKeyPath(), $pem);
+        $this->writeFile($this->accountKeyPath($providerSlug), $pem);
         $this->writeFile(
-            $this->accountMetaPath(),
+            $this->accountMetaPath($providerSlug),
             json_encode(['key_type' => $type->value], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT),
         );
     }
@@ -100,31 +91,16 @@ class FilesystemStorage implements StorageInterface
         }
     }
 
-    public function withProviderSlug(string $slug): self
-    {
-        $clone               = clone $this;
-        $clone->providerSlug = $slug;
-
-        return $clone;
-    }
-
     // ── Paths ─────────────────────────────────────────────────────────────────
 
-    private function accountKeyPath(): string
+    private function accountKeyPath(string $providerSlug): string
     {
-        return $this->dir() . $this->accountBasename() . '.pem';
+        return $this->dir() . 'account-' . $providerSlug . '.pem';
     }
 
-    private function accountMetaPath(): string
+    private function accountMetaPath(string $providerSlug): string
     {
-        return $this->dir() . $this->accountBasename() . '.json';
-    }
-
-    private function accountBasename(): string
-    {
-        return $this->providerSlug !== null
-            ? 'account-' . $this->providerSlug
-            : 'account';
+        return $this->dir() . 'account-' . $providerSlug . '.json';
     }
 
     private function certPath(string $domain, KeyType $keyType): string

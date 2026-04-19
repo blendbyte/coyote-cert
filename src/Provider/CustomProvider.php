@@ -38,9 +38,12 @@ class CustomProvider extends AbstractProvider
     public function getSlug(): string
     {
         $host = parse_url($this->directoryUrl, PHP_URL_HOST);
-        $host = is_string($host) ? $host : 'custom';
+        $slug = preg_replace('/[^a-z0-9-]/', '-', strtolower(is_string($host) ? $host : 'custom'));
+        $slug = trim((string) $slug, '-') ?: 'custom';
 
-        return (string) preg_replace('/[^a-z0-9\-]/', '-', strtolower($host));
+        self::assertValidSlug($slug);
+
+        return $slug;
     }
 
     public function getDisplayName(): string

@@ -13,9 +13,6 @@ use CoyoteCert\Exceptions\StorageException;
  */
 class DatabaseStorage implements StorageInterface
 {
-    private const KEY_ACCOUNT_PEM  = '__account_pem';
-    private const KEY_ACCOUNT_TYPE = '__account_key_type';
-
     public function __construct(
         private readonly \PDO   $pdo,
         private readonly string $table = 'coyote_cert_storage',
@@ -64,14 +61,14 @@ class DatabaseStorage implements StorageInterface
 
     // ── Account key ──────────────────────────────────────────────────────────
 
-    public function hasAccountKey(): bool
+    public function hasAccountKey(string $providerSlug): bool
     {
-        return $this->get(self::KEY_ACCOUNT_PEM) !== null;
+        return $this->get('account:' . $providerSlug . ':pem') !== null;
     }
 
-    public function getAccountKey(): string
+    public function getAccountKey(string $providerSlug): string
     {
-        $value = $this->get(self::KEY_ACCOUNT_PEM);
+        $value = $this->get('account:' . $providerSlug . ':pem');
 
         if ($value === null) {
             throw new StorageException('No account key found in database storage.');
@@ -80,9 +77,9 @@ class DatabaseStorage implements StorageInterface
         return $value;
     }
 
-    public function getAccountKeyType(): KeyType
+    public function getAccountKeyType(string $providerSlug): KeyType
     {
-        $value = $this->get(self::KEY_ACCOUNT_TYPE);
+        $value = $this->get('account:' . $providerSlug . ':key_type');
 
         if ($value === null) {
             throw new StorageException('No account key type found in database storage.');
@@ -91,10 +88,10 @@ class DatabaseStorage implements StorageInterface
         return KeyType::from($value);
     }
 
-    public function saveAccountKey(string $pem, KeyType $type): void
+    public function saveAccountKey(string $providerSlug, string $pem, KeyType $type): void
     {
-        $this->set(self::KEY_ACCOUNT_PEM, $pem);
-        $this->set(self::KEY_ACCOUNT_TYPE, $type->value);
+        $this->set('account:' . $providerSlug . ':pem', $pem);
+        $this->set('account:' . $providerSlug . ':key_type', $type->value);
     }
 
     // ── Certificates ─────────────────────────────────────────────────────────

@@ -35,35 +35,44 @@ function makeDatabaseCert(KeyType $keyType = KeyType::EC_P256): StoredCertificat
 
 it('has no account key initially', function () {
     $storage = makeSqliteStorage();
-    expect($storage->hasAccountKey())->toBeFalse();
+    expect($storage->hasAccountKey('letsencrypt'))->toBeFalse();
 });
 
 it('saves and retrieves an account key', function () {
     $storage = makeSqliteStorage();
-    $storage->saveAccountKey('pem-data', KeyType::RSA_2048);
+    $storage->saveAccountKey('letsencrypt', 'pem-data', KeyType::RSA_2048);
 
-    expect($storage->hasAccountKey())->toBeTrue();
-    expect($storage->getAccountKey())->toBe('pem-data');
-    expect($storage->getAccountKeyType())->toBe(KeyType::RSA_2048);
+    expect($storage->hasAccountKey('letsencrypt'))->toBeTrue();
+    expect($storage->getAccountKey('letsencrypt'))->toBe('pem-data');
+    expect($storage->getAccountKeyType('letsencrypt'))->toBe(KeyType::RSA_2048);
 });
 
 it('overwrites an existing account key', function () {
     $storage = makeSqliteStorage();
-    $storage->saveAccountKey('old-pem', KeyType::RSA_2048);
-    $storage->saveAccountKey('new-pem', KeyType::EC_P256);
+    $storage->saveAccountKey('letsencrypt', 'old-pem', KeyType::RSA_2048);
+    $storage->saveAccountKey('letsencrypt', 'new-pem', KeyType::EC_P256);
 
-    expect($storage->getAccountKey())->toBe('new-pem');
-    expect($storage->getAccountKeyType())->toBe(KeyType::EC_P256);
+    expect($storage->getAccountKey('letsencrypt'))->toBe('new-pem');
+    expect($storage->getAccountKeyType('letsencrypt'))->toBe(KeyType::EC_P256);
+});
+
+it('isolates account keys by provider slug', function () {
+    $storage = makeSqliteStorage();
+    $storage->saveAccountKey('letsencrypt', 'le-pem', KeyType::EC_P256);
+    $storage->saveAccountKey('zerossl', 'zs-pem', KeyType::RSA_2048);
+
+    expect($storage->getAccountKey('letsencrypt'))->toBe('le-pem');
+    expect($storage->getAccountKey('zerossl'))->toBe('zs-pem');
 });
 
 it('throws when getAccountKey is called with no key stored', function () {
     $storage = makeSqliteStorage();
-    expect(fn() => $storage->getAccountKey())->toThrow(StorageException::class);
+    expect(fn() => $storage->getAccountKey('letsencrypt'))->toThrow(StorageException::class);
 });
 
 it('throws when getAccountKeyType is called with no key type stored', function () {
     $storage = makeSqliteStorage();
-    expect(fn() => $storage->getAccountKeyType())->toThrow(StorageException::class);
+    expect(fn() => $storage->getAccountKeyType('letsencrypt'))->toThrow(StorageException::class);
 });
 
 it('has no certificate initially', function () {
@@ -154,7 +163,7 @@ it('set() uses ON CONFLICT syntax for pgsql driver', function () {
     };
 
     $storage = new DatabaseStorage($mockPdo);
-    $storage->saveAccountKey('pem-data', KeyType::RSA_2048);
+    $storage->saveAccountKey('letsencrypt', 'pem-data', KeyType::RSA_2048);
 
     $pgsqlSqls = array_filter(
         $mockPdo->capturedSql,
@@ -164,15 +173,14 @@ it('set() uses ON CONFLICT syntax for pgsql driver', function () {
 });
 
 it('set() uses ON DUPLICATE KEY UPDATE syntax for non-sqlite/non-pgsql drivers', function () {
-    // Mock PDO that reports 'mysql' as driver but records prepared SQL
     $mockPdo = new class extends \PDO {
         public array $capturedSql = [];
 
-        public function __construct() {} // intentionally skip parent — this is a mock
+        public function __construct() {}
 
         public function getAttribute(int $attribute): mixed
         {
-            return 'mysql'; // simulate MySQL driver
+            return 'mysql';
         }
 
         public function prepare(string $query, array $options = []): \PDOStatement|false
@@ -189,7 +197,7 @@ it('set() uses ON DUPLICATE KEY UPDATE syntax for non-sqlite/non-pgsql drivers',
     };
 
     $storage = new DatabaseStorage($mockPdo);
-    $storage->saveAccountKey('pem-data', KeyType::RSA_2048);
+    $storage->saveAccountKey('letsencrypt', 'pem-data', KeyType::RSA_2048);
 
     $mysqlSqls = array_filter(
         $mockPdo->capturedSql,

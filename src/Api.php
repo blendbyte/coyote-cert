@@ -60,7 +60,7 @@ class Api
     public function accountAdapter(): AcmeAccountInterface
     {
         if ($this->storage !== null) {
-            return new StorageAccountAdapter($this->storage, $this->accountKeyType);
+            return new StorageAccountAdapter($this->storage, $this->provider->getSlug(), $this->accountKeyType);
         }
 
         throw new AcmeException(

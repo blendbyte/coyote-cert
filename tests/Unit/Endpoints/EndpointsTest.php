@@ -62,10 +62,15 @@ function directoryBody(bool $withRenewalInfo = false): array
     return $body;
 }
 
+function testProvider(): CustomProvider
+{
+    return new CustomProvider(directoryUrl: 'https://acme.example/directory');
+}
+
 function makeEndpointApi(HttpClientInterface $httpClient, ?InMemoryStorage $storage = null): Api
 {
     return new Api(
-        provider: new CustomProvider(directoryUrl: 'https://acme.example/directory'),
+        provider: testProvider(),
         storage: $storage ?? new InMemoryStorage(),
         httpClient: $httpClient,
     );
@@ -130,7 +135,7 @@ it('Account::create() throws via throwError on a non-201 response', function () 
 
 it('RenewalInfo::get() returns null when renewalInfo is absent from the directory', function () {
     $storage = new InMemoryStorage();
-    $storage->saveAccountKey(rsaKeyPem(), KeyType::RSA_2048);
+    $storage->saveAccountKey(testProvider()->getSlug(), rsaKeyPem(), KeyType::RSA_2048);
 
     $api = makeEndpointApi(endpointMock(getBody: directoryBody(withRenewalInfo: false)), $storage);
 
@@ -142,7 +147,7 @@ it('RenewalInfo::get() returns null when renewalInfo is absent from the director
 
 it('Order::finalize() returns false when the order is not ready (status=pending)', function () {
     $storage = new InMemoryStorage();
-    $storage->saveAccountKey(rsaKeyPem(), KeyType::RSA_2048);
+    $storage->saveAccountKey(testProvider()->getSlug(), rsaKeyPem(), KeyType::RSA_2048);
 
     // No HTTP calls are made; the isReady() guard short-circuits before any I/O.
     $api = makeEndpointApi(endpointMock(), $storage);
@@ -172,7 +177,7 @@ it('Order::finalize() returns false when the order is not ready (status=pending)
 function withKeyStorage(): InMemoryStorage
 {
     $storage = new InMemoryStorage();
-    $storage->saveAccountKey(rsaKeyPem(), KeyType::RSA_2048);
+    $storage->saveAccountKey(testProvider()->getSlug(), rsaKeyPem(), KeyType::RSA_2048);
 
     return $storage;
 }
@@ -857,7 +862,7 @@ it('DomainValidation::start() sends DNS_PERSIST challenge with localTest=false',
 
 it('DomainValidation::start() with localTest=true passes HTTP local check when body matches', function () {
     $storage    = withKeyStorage();
-    $thumbprint = \CoyoteCert\Support\Thumbprint::make($storage->getAccountKey());
+    $thumbprint = \CoyoteCert\Support\Thumbprint::make($storage->getAccountKey(testProvider()->getSlug()));
     $token      = 'local-test-token';
     $keyAuth    = $token . '.' . $thumbprint;
 
@@ -1244,7 +1249,7 @@ function directoryBodyWithKeyChange(bool $withRenewalInfo = false): array
 
 it('Account::keyRollover() saves a new RSA key and returns AccountData on success', function () {
     $storage = withKeyStorage();
-    $oldKey  = $storage->getAccountKey();
+    $oldKey  = $storage->getAccountKey(testProvider()->getSlug());
 
     $mock = closureMock(
         getHandler: fn($url) => new Response([], $url, 200, directoryBodyWithKeyChange()),
@@ -1254,13 +1259,13 @@ it('Account::keyRollover() saves a new RSA key and returns AccountData on succes
     $result = makeEndpointApi($mock, $storage)->account()->keyRollover(makeAccountData());
 
     expect($result->status)->toBe('valid');
-    expect($storage->getAccountKey())->not->toBe($oldKey);
+    expect($storage->getAccountKey(testProvider()->getSlug()))->not->toBe($oldKey);
 });
 
 it('Account::keyRollover() saves a new EC key when the account key is EC', function () {
     $storage = new InMemoryStorage();
-    $storage->saveAccountKey(ecKeyPem(), KeyType::EC_P256);
-    $oldKey = $storage->getAccountKey();
+    $storage->saveAccountKey(testProvider()->getSlug(), ecKeyPem(), KeyType::EC_P256);
+    $oldKey = $storage->getAccountKey(testProvider()->getSlug());
 
     $mock = closureMock(
         getHandler: fn($url) => new Response([], $url, 200, directoryBodyWithKeyChange()),
@@ -1270,7 +1275,7 @@ it('Account::keyRollover() saves a new EC key when the account key is EC', funct
     $result = makeEndpointApi($mock, $storage)->account()->keyRollover(makeAccountData());
 
     expect($result->status)->toBe('valid');
-    expect($storage->getAccountKey())->not->toBe($oldKey);
+    expect($storage->getAccountKey(testProvider()->getSlug()))->not->toBe($oldKey);
 });
 
 it('Account::keyRollover() retries once on badNonce', function () {

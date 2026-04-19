@@ -19,12 +19,13 @@ class StorageAccountAdapter implements AcmeAccountInterface
 {
     public function __construct(
         private readonly StorageInterface $storage,
+        private readonly string           $providerSlug,
         private readonly KeyType          $keyType = KeyType::EC_P256,
     ) {}
 
     public function getPrivateKey(): string
     {
-        return $this->storage->getAccountKey();
+        return $this->storage->getAccountKey($this->providerSlug);
     }
 
     public function getPublicKey(): string
@@ -46,7 +47,7 @@ class StorageAccountAdapter implements AcmeAccountInterface
 
     public function exists(): bool
     {
-        return $this->storage->hasAccountKey();
+        return $this->storage->hasAccountKey($this->providerSlug);
     }
 
     /**
@@ -63,13 +64,13 @@ class StorageAccountAdapter implements AcmeAccountInterface
         $keyType = $keyTypeOverride ?? $this->keyType;
         $key     = OpenSsl::generateKey($keyType);
         $pem     = OpenSsl::openSslKeyToString($key);
-        $this->storage->saveAccountKey($pem, $keyType);
+        $this->storage->saveAccountKey($this->providerSlug, $pem, $keyType);
 
         return true;
     }
 
     public function savePrivateKey(string $pem, \CoyoteCert\Enums\KeyType $keyType): void
     {
-        $this->storage->saveAccountKey($pem, $keyType);
+        $this->storage->saveAccountKey($this->providerSlug, $pem, $keyType);
     }
 }

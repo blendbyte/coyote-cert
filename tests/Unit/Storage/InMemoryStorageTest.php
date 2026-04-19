@@ -19,26 +19,37 @@ function makeStoredCert(KeyType $keyType = KeyType::EC_P256): StoredCertificate
 }
 
 it('has no account key initially', function () {
-    expect((new InMemoryStorage())->hasAccountKey())->toBeFalse();
+    expect((new InMemoryStorage())->hasAccountKey('letsencrypt'))->toBeFalse();
 });
 
 it('saves and retrieves an account key', function () {
     $storage = new InMemoryStorage();
-    $storage->saveAccountKey('pem-data', KeyType::RSA_2048);
+    $storage->saveAccountKey('letsencrypt', 'pem-data', KeyType::RSA_2048);
 
-    expect($storage->hasAccountKey())->toBeTrue();
-    expect($storage->getAccountKey())->toBe('pem-data');
-    expect($storage->getAccountKeyType())->toBe(KeyType::RSA_2048);
+    expect($storage->hasAccountKey('letsencrypt'))->toBeTrue();
+    expect($storage->getAccountKey('letsencrypt'))->toBe('pem-data');
+    expect($storage->getAccountKeyType('letsencrypt'))->toBe(KeyType::RSA_2048);
 });
 
 it('throws when getting account key before saving', function () {
-    expect(fn() => (new InMemoryStorage())->getAccountKey())
+    expect(fn() => (new InMemoryStorage())->getAccountKey('letsencrypt'))
         ->toThrow(\CoyoteCert\Exceptions\StorageException::class);
 });
 
 it('throws when getting account key type before saving', function () {
-    expect(fn() => (new InMemoryStorage())->getAccountKeyType())
+    expect(fn() => (new InMemoryStorage())->getAccountKeyType('letsencrypt'))
         ->toThrow(\CoyoteCert\Exceptions\StorageException::class);
+});
+
+it('isolates account keys by provider slug', function () {
+    $storage = new InMemoryStorage();
+    $storage->saveAccountKey('letsencrypt', 'le-pem', KeyType::EC_P256);
+    $storage->saveAccountKey('zerossl', 'zs-pem', KeyType::RSA_2048);
+
+    expect($storage->getAccountKey('letsencrypt'))->toBe('le-pem');
+    expect($storage->getAccountKey('zerossl'))->toBe('zs-pem');
+    expect($storage->getAccountKeyType('letsencrypt'))->toBe(KeyType::EC_P256);
+    expect($storage->getAccountKeyType('zerossl'))->toBe(KeyType::RSA_2048);
 });
 
 it('has no certificate initially', function () {

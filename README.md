@@ -479,6 +479,8 @@ CoyoteCert::with(new CustomProvider(
 ))
 ```
 
+The storage namespace slug is derived automatically from the directory URL's hostname: `https://acme.example.com/directory` → `acme-example-com`. Call `$provider->getSlug()` to inspect it. This matters when using a custom storage backend alongside `CustomProvider`, since account keys are keyed by slug.
+
 ---
 
 ## Challenge handlers
@@ -812,25 +814,25 @@ class RedisStorage implements StorageInterface
 {
     public function __construct(private \Redis $redis) {}
 
-    public function hasAccountKey(): bool
+    public function hasAccountKey(string $providerSlug): bool
     {
-        return (bool) $this->redis->exists('acme:account:pem');
+        return (bool) $this->redis->exists("acme:{$providerSlug}:account:pem");
     }
 
-    public function getAccountKey(): string
+    public function getAccountKey(string $providerSlug): string
     {
-        return $this->redis->get('acme:account:pem');
+        return $this->redis->get("acme:{$providerSlug}:account:pem");
     }
 
-    public function getAccountKeyType(): KeyType
+    public function getAccountKeyType(string $providerSlug): KeyType
     {
-        return KeyType::from($this->redis->get('acme:account:type'));
+        return KeyType::from($this->redis->get("acme:{$providerSlug}:account:type"));
     }
 
-    public function saveAccountKey(string $pem, KeyType $type): void
+    public function saveAccountKey(string $providerSlug, string $pem, KeyType $type): void
     {
-        $this->redis->set('acme:account:pem', $pem);
-        $this->redis->set('acme:account:type', $type->value);
+        $this->redis->set("acme:{$providerSlug}:account:pem", $pem);
+        $this->redis->set("acme:{$providerSlug}:account:type", $type->value);
     }
 
     public function hasCertificate(string $domain, KeyType $keyType): bool
@@ -855,6 +857,10 @@ class RedisStorage implements StorageInterface
     }
 }
 ```
+
+The provider slug is passed automatically by CoyoteCert on every account key operation, so multiple CAs never share the same account key. No extra wiring needed.
+
+Built-in providers return fixed slugs (`letsencrypt`, `zerossl`, etc.). `CustomProvider` derives its slug from the directory URL hostname (`acme.example.com` → `acme-example-com`). If you implement `AcmeProviderInterface` directly, `getSlug()` must return a string matching `[a-z0-9][a-z0-9-]*[a-z0-9]` — lowercase, no leading or trailing hyphens. Extending `AbstractProvider` gives you `assertValidSlug()` as a convenience guard.
 
 ---
 

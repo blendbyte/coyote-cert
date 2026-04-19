@@ -33,20 +33,30 @@ function makeFileCert(KeyType $keyType = KeyType::EC_P256): StoredCertificate
 }
 
 it('has no account key initially', function () {
-    expect($this->storage->hasAccountKey())->toBeFalse();
+    expect($this->storage->hasAccountKey('letsencrypt'))->toBeFalse();
 });
 
 it('saves and loads an account key', function () {
-    $this->storage->saveAccountKey('my-pem-data', KeyType::EC_P256);
+    $this->storage->saveAccountKey('letsencrypt', 'my-pem-data', KeyType::EC_P256);
 
-    expect($this->storage->hasAccountKey())->toBeTrue();
-    expect($this->storage->getAccountKey())->toBe('my-pem-data');
-    expect($this->storage->getAccountKeyType())->toBe(KeyType::EC_P256);
+    expect($this->storage->hasAccountKey('letsencrypt'))->toBeTrue();
+    expect($this->storage->getAccountKey('letsencrypt'))->toBe('my-pem-data');
+    expect($this->storage->getAccountKeyType('letsencrypt'))->toBe(KeyType::EC_P256);
+});
+
+it('isolates account keys by provider slug', function () {
+    $this->storage->saveAccountKey('letsencrypt', 'le-pem', KeyType::EC_P256);
+    $this->storage->saveAccountKey('zerossl', 'zs-pem', KeyType::RSA_2048);
+
+    expect($this->storage->getAccountKey('letsencrypt'))->toBe('le-pem');
+    expect($this->storage->getAccountKey('zerossl'))->toBe('zs-pem');
+    expect(file_exists($this->dir . '/account-letsencrypt.pem'))->toBeTrue();
+    expect(file_exists($this->dir . '/account-zerossl.pem'))->toBeTrue();
 });
 
 it('creates the storage directory on first write', function () {
     expect(is_dir($this->dir))->toBeFalse();
-    $this->storage->saveAccountKey('pem', KeyType::RSA_2048);
+    $this->storage->saveAccountKey('letsencrypt', 'pem', KeyType::RSA_2048);
     expect(is_dir($this->dir))->toBeTrue();
 });
 
@@ -104,7 +114,7 @@ it('stores RSA and ECDSA certificates in separate files', function () {
 });
 
 it('getAccountKey throws when account key file does not exist', function () {
-    expect(fn() => $this->storage->getAccountKey())
+    expect(fn() => $this->storage->getAccountKey('letsencrypt'))
         ->toThrow(\CoyoteCert\Exceptions\StorageException::class, 'does not exist');
 });
 
@@ -112,7 +122,7 @@ it('saveAccountKey throws when the storage directory cannot be created', functio
     // Create a FILE at the directory path so mkdir inside ensureDirectory() fails
     file_put_contents($this->dir, 'not-a-dir');
 
-    expect(fn() => $this->storage->saveAccountKey('pem', KeyType::RSA_2048))
+    expect(fn() => $this->storage->saveAccountKey('letsencrypt', 'pem', KeyType::RSA_2048))
         ->toThrow(\CoyoteCert\Exceptions\StorageException::class, 'could not be created');
 
     @unlink($this->dir);
@@ -254,7 +264,7 @@ it('writeFile throws StorageException when the file cannot be written', function
     chmod($this->dir, 0o555); // read+execute only
 
     try {
-        expect(fn() => $this->storage->saveAccountKey('pem', KeyType::EC_P256))
+        expect(fn() => $this->storage->saveAccountKey('letsencrypt', 'pem', KeyType::EC_P256))
             ->toThrow(\CoyoteCert\Exceptions\StorageException::class, 'Could not write');
     } finally {
         chmod($this->dir, 0o755); // restore so afterEach cleanup can remove the dir

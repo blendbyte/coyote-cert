@@ -8,15 +8,15 @@ interface StorageInterface
 {
     // ── Account key ──────────────────────────────────────────────────────────
 
-    public function hasAccountKey(): bool;
+    public function hasAccountKey(string $providerSlug): bool;
 
-    /** Returns the account private key PEM. */
-    public function getAccountKey(): string;
+    /** Returns the account private key PEM for the given provider. */
+    public function getAccountKey(string $providerSlug): string;
 
     /** Returns the KeyType that was used when the account key was saved. */
-    public function getAccountKeyType(): KeyType;
+    public function getAccountKeyType(string $providerSlug): KeyType;
 
-    public function saveAccountKey(string $pem, KeyType $type): void;
+    public function saveAccountKey(string $providerSlug, string $pem, KeyType $type): void;
 
     // ── Certificates ─────────────────────────────────────────────────────────
 

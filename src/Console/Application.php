@@ -12,7 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class Application extends BaseApplication
 {
-    private const REPO = 'https://github.com/blendbyte/coyote-cert';
+    private const REPO = 'https://github.com/blendbyte/coyotecert';
 
     public function __construct()
     {

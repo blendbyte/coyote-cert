@@ -16,7 +16,7 @@ it('getLongVersion contains the app name, version, and repo URL', function () {
 
     expect($version)->toContain('coyote');
     expect($version)->toMatch('/\d+\.\d+\.\d+|dev/');
-    expect($version)->toContain('github.com/blendbyte/coyote-cert');
+    expect($version)->toContain('github.com/blendbyte/coyotecert');
 });
 
 it('getHelp describes the app and lists supported CAs', function () {

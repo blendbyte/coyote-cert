@@ -1254,7 +1254,7 @@ $coyote->revoke($cert, RevocationReason::PrivilegeWithdrawn);
 $coyote->revoke($cert, RevocationReason::AaCompromise);
 ```
 
-Returns `true` on success, `false` if the CA rejected the request.
+Throws `AcmeException` if the CA rejects the request.
 
 After revoking, delete the stored certificate so `issueOrRenew()` requests a fresh one:
 
@@ -1327,7 +1327,7 @@ Log messages cover directory fetches, nonce acquisition, challenge deployment, v
 
 ## Inspecting StoredCertificate
 
-`StoredCertificate` is the value object returned by `issue()`, `issueOrRenew()`, and `renew()`. It holds all certificate data and exposes a handful of inspection helpers.
+`StoredCertificate` is the value object returned by `issue()` and `issueOrRenew()`. It holds all certificate data and exposes a handful of inspection helpers.
 
 ### Properties
 
@@ -1400,6 +1400,7 @@ CoyoteCert::with(AcmeProviderInterface $provider)  // factory: pick your CA
 | `->withHttpTimeout(int)` | fluent | `10` | Curl timeout in seconds |
 | `->logger(LoggerInterface)` | fluent | none | PSR-3 logger |
 | `->preferredChain(string)` | fluent | `''` | Preferred chain issuer CN/O (RFC 8555 §7.4.2); falls back to default if no match |
+| `->pollAttempts(int)` | fluent | `10` | Maximum challenge validation poll attempts |
 | `->skipLocalTest()` | fluent | off | Disable pre-flight HTTP/DNS self-check |
 | `->skipCaaCheck()` | fluent | off | Disable CAA DNS pre-check |
 | `->onIssued(callable)` | fluent | none | Callback fired after every successful issuance; receives `StoredCertificate` |

@@ -2,6 +2,7 @@
 
 namespace CoyoteCert\DTO;
 
+use CoyoteCert\Exceptions\AcmeException;
 use CoyoteCert\Http\Response;
 
 readonly class CertificateBundleData
@@ -14,25 +15,25 @@ readonly class CertificateBundleData
 
     public static function fromResponse(Response $response): CertificateBundleData
     {
-        $certificate = '';
-        $fullchain   = '';
-        $caBundle    = '';
-
-        if (preg_match_all(
+        if (!preg_match_all(
             '~(-----BEGIN\sCERTIFICATE-----[\s\S]+?-----END\sCERTIFICATE-----)~i',
             $response->rawBody(),
             $matches,
         )) {
-            $certificate  = $matches[0][0];
-            $matchesCount = count($matches[0]);
+            throw new AcmeException('Certificate response contained no PEM blocks.');
+        }
 
-            if ($matchesCount > 1) {
-                $fullchain = $matches[0][0] . "\n";
+        $certificate  = $matches[0][0];
+        $matchesCount = count($matches[0]);
+        $fullchain    = '';
+        $caBundle     = '';
 
-                for ($i = 1; $i < $matchesCount; $i++) {
-                    $caBundle  .= $matches[0][$i] . "\n";
-                    $fullchain .= $matches[0][$i] . "\n";
-                }
+        if ($matchesCount > 1) {
+            $fullchain = $matches[0][0] . "\n";
+
+            for ($i = 1; $i < $matchesCount; $i++) {
+                $caBundle  .= $matches[0][$i] . "\n";
+                $fullchain .= $matches[0][$i] . "\n";
             }
         }
 

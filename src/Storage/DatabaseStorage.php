@@ -5,32 +5,13 @@ namespace CoyoteCert\Storage;
 use CoyoteCert\Enums\KeyType;
 use CoyoteCert\Exceptions\StorageException;
 
-/**
- * PDO-backed storage.
- *
- * Creates a single key-value table. Run {@see DatabaseStorage::createTable()}
- * once during your application's setup or migration step.
- */
 class DatabaseStorage implements StorageInterface
 {
     public function __construct(
         private readonly \PDO   $pdo,
         private readonly string $table = 'coyote_cert_storage',
     ) {
-        $this->validateIdentifier($this->table);
-    }
-
-    /**
-     * Ensures an identifier (table/column name) contains only safe characters.
-     * Rejects anything that is not [a-zA-Z0-9_].
-     */
-    private function validateIdentifier(string $name): void
-    {
-        if (!preg_match('/^[a-zA-Z0-9_]+$/', $name)) {
-            throw new \InvalidArgumentException(
-                sprintf('Invalid SQL identifier "%s": only [a-zA-Z0-9_] are allowed.', $name),
-            );
-        }
+        self::validateIdentifier($this->table);
     }
 
     /**
@@ -41,11 +22,7 @@ class DatabaseStorage implements StorageInterface
      */
     public static function createTableSql(string $table = 'coyote_cert_storage'): string
     {
-        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
-            throw new \InvalidArgumentException(
-                sprintf('Invalid SQL identifier "%s": only [a-zA-Z0-9_] are allowed.', $table),
-            );
-        }
+        self::validateIdentifier($table);
 
         return <<<SQL
             CREATE TABLE IF NOT EXISTS `{$table}` (
@@ -68,22 +45,14 @@ class DatabaseStorage implements StorageInterface
 
     public function getAccountKey(string $providerSlug): string
     {
-        $value = $this->get('account:' . $providerSlug . ':pem');
-
-        if ($value === null) {
-            throw new StorageException('No account key found in database storage.');
-        }
-
-        return $value;
+        return $this->get('account:' . $providerSlug . ':pem')
+            ?? throw new StorageException('No account key found in database storage.');
     }
 
     public function getAccountKeyType(string $providerSlug): KeyType
     {
-        $value = $this->get('account:' . $providerSlug . ':key_type');
-
-        if ($value === null) {
-            throw new StorageException('No account key type found in database storage.');
-        }
+        $value = $this->get('account:' . $providerSlug . ':key_type')
+            ?? throw new StorageException('No account key type found in database storage.');
 
         return KeyType::from($value);
     }
@@ -105,13 +74,9 @@ class DatabaseStorage implements StorageInterface
     {
         $json = $this->get($this->certKey($domain, $keyType));
 
-        if ($json === null) {
-            return null;
-        }
-
-        return StoredCertificate::fromArray(
-            json_decode($json, true, 512, JSON_THROW_ON_ERROR),
-        );
+        return $json !== null
+            ? StoredCertificate::fromArray(json_decode($json, true, 512, JSON_THROW_ON_ERROR))
+            : null;
     }
 
     public function saveCertificate(string $domain, StoredCertificate $cert): void
@@ -124,10 +89,9 @@ class DatabaseStorage implements StorageInterface
 
     public function deleteCertificate(string $domain, KeyType $keyType): void
     {
-        $stmt = $this->pdo->prepare(
-            "DELETE FROM `{$this->table}` WHERE `store_key` = :key",
-        );
-        $stmt->execute([':key' => $this->certKey($domain, $keyType)]);
+        $this->pdo
+            ->prepare("DELETE FROM `{$this->table}` WHERE `store_key` = :key")
+            ->execute([':key' => $this->certKey($domain, $keyType)]);
     }
 
     // ── PDO helpers ───────────────────────────────────────────────────────────
@@ -150,20 +114,25 @@ class DatabaseStorage implements StorageInterface
 
     private function set(string $key, string $value): void
     {
-        $driver = $this->pdo->getAttribute(\PDO::ATTR_DRIVER_NAME);
-
-        if ($driver === 'sqlite') {
-            $sql = "INSERT OR REPLACE INTO `{$this->table}` (`store_key`, `value`) VALUES (:key, :value)";
-        } elseif ($driver === 'pgsql') {
-            $sql = "INSERT INTO \"{$this->table}\" (\"store_key\", \"value\")
-                    VALUES (:key, :value)
-                    ON CONFLICT (\"store_key\") DO UPDATE SET \"value\" = EXCLUDED.\"value\"";
-        } else {
-            $sql = "INSERT INTO `{$this->table}` (`store_key`, `value`)
-                    VALUES (:key, :value)
-                    ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)";
-        }
+        $sql = match ($this->pdo->getAttribute(\PDO::ATTR_DRIVER_NAME)) {
+            'sqlite' => "INSERT OR REPLACE INTO `{$this->table}` (`store_key`, `value`) VALUES (:key, :value)",
+            'pgsql'  => "INSERT INTO \"{$this->table}\" (\"store_key\", \"value\")
+                         VALUES (:key, :value)
+                         ON CONFLICT (\"store_key\") DO UPDATE SET \"value\" = EXCLUDED.\"value\"",
+            default => "INSERT INTO `{$this->table}` (`store_key`, `value`)
+                         VALUES (:key, :value)
+                         ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)",
+        };
 
         $this->pdo->prepare($sql)->execute([':key' => $key, ':value' => $value]);
+    }
+
+    private static function validateIdentifier(string $name): void
+    {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $name)) {
+            throw new \InvalidArgumentException(
+                sprintf('Invalid SQL identifier "%s": only [a-zA-Z0-9_] are allowed.', $name),
+            );
+        }
     }
 }

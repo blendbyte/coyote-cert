@@ -7,11 +7,6 @@ use CoyoteCert\Exceptions\AcmeException;
 
 class ZeroSSL extends AbstractProvider
 {
-    /**
-     * @param string|null $apiKey ZeroSSL API key for automatic EAB provisioning.
-     * @param string|null $eabKid Pre-provisioned EAB key ID (alternative to apiKey).
-     * @param string|null $eabHmac Pre-provisioned EAB HMAC key (alternative to apiKey).
-     */
     public function __construct(
         private readonly ?string $apiKey = null,
         private readonly ?string $eabKid = null,
@@ -53,7 +48,6 @@ class ZeroSSL extends AbstractProvider
 
     public function getCaaIdentifiers(): array
     {
-        // ZeroSSL issues under Sectigo roots; sectigo.com is the authorised CAA value.
         return ['sectigo.com', 'comodoca.com'];
     }
 
@@ -76,7 +70,7 @@ class ZeroSSL extends AbstractProvider
 
         $body = file_get_contents($url, false, $context);
 
-        // Parse HTTP status from $http_response_header (populated by file_get_contents)
+        // $http_response_header is populated by file_get_contents as a side-effect
         $httpCode = 0;
         if (!empty($http_response_header)) {
             if (preg_match('/HTTP\/\S+\s+(\d+)/', $http_response_header[0], $m)) {

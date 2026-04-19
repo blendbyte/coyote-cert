@@ -21,7 +21,6 @@ use Psr\Log\LoggerInterface;
 
 class Api
 {
-    /** Cached nonce from the last ACME response's Replay-Nonce header. */
     private ?string $cachedNonce = null;
 
     public function __construct(
@@ -32,18 +31,11 @@ class Api
         private readonly KeyType               $accountKeyType = KeyType::EC_P256,
     ) {}
 
-    /**
-     * Store a nonce returned in a server response's Replay-Nonce header
-     * so the next request can use it without a round-trip HEAD request.
-     */
     public function storeNonce(string $nonce): void
     {
         $this->cachedNonce = $nonce;
     }
 
-    /**
-     * Consume and return the cached nonce, or null if none is available.
-     */
     public function consumeCachedNonce(): ?string
     {
         $nonce             = $this->cachedNonce;

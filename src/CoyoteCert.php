@@ -25,25 +25,6 @@ use CoyoteCert\Support\OpenSsl;
 use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
-/**
- * High-level fluent entry point for certificate issuance and renewal.
- *
- * Usage:
- *
- *   $cert = CoyoteCert::with(new LetsEncrypt())
- *       ->storage(new FilesystemStorage('/var/certs'))
- *       ->identifiers(['example.com', 'www.example.com'])
- *       ->challenge(new Http01Handler('/var/www/html'))
- *       ->issue();
- *
- * Or to issue only when the certificate is close to expiry:
- *
- *   $cert = CoyoteCert::with(new LetsEncrypt())
- *       ->storage(new FilesystemStorage('/var/certs'))
- *       ->identifiers('example.com')
- *       ->challenge(new Http01Handler('/var/www/html'))
- *       ->issueOrRenew();
- */
 class CoyoteCert
 {
     private ?StorageInterface          $storage    = null;
@@ -80,10 +61,6 @@ class CoyoteCert
         return $this;
     }
 
-    /**
-     * Request a specific ACME profile (e.g. 'shortlived', 'classic').
-     * Silently ignored for CAs that don't support profiles.
-     */
     public function profile(string $profile): self
     {
         $this->profile = $profile;
@@ -107,9 +84,7 @@ class CoyoteCert
 
     /**
      * Use a PSR-18 HTTP client instead of the built-in curl client.
-     *
-     * $requestFactory and $streamFactory are optional when the PSR-18 client
-     * also implements those interfaces (e.g. Symfony's Psr18Client).
+     * $requestFactory and $streamFactory are optional when the client also implements those interfaces.
      */
     public function httpClient(
         \Psr\Http\Client\ClientInterface $client,
@@ -144,9 +119,6 @@ class CoyoteCert
         return $this;
     }
 
-    /**
-     * Set the key type used for the domain certificate (default: EC_P256).
-     */
     public function keyType(KeyType $type): self
     {
         $this->certKeyType = $type;
@@ -154,9 +126,6 @@ class CoyoteCert
         return $this;
     }
 
-    /**
-     * Set the key type used for the ACME account key (default: EC_P256).
-     */
     public function accountKeyType(KeyType $type): self
     {
         $this->accountKeyType = $type;
@@ -164,10 +133,7 @@ class CoyoteCert
         return $this;
     }
 
-    /**
-     * Disable the pre-flight HTTP/DNS self-check that runs before notifying the CA.
-     * Useful when the server is internal or challenge files are deployed elsewhere.
-     */
+    /** Disable the pre-flight self-check before notifying the CA. */
     public function skipLocalTest(): self
     {
         $this->localTest = false;
@@ -175,10 +141,7 @@ class CoyoteCert
         return $this;
     }
 
-    /**
-     * Skip the CAA DNS pre-check before submitting the order to the CA.
-     * Useful when DNS is internal or the CAA records are managed outside your control.
-     */
+    /** Skip the CAA DNS pre-check (useful when DNS is internal or not reachable). */
     public function skipCaaCheck(): self
     {
         $this->skipCaaCheck = true;
@@ -187,14 +150,8 @@ class CoyoteCert
     }
 
     /**
-     * Prefer a specific certificate chain by matching the issuer Common Name or
-     * Organisation of the intermediate certificates (RFC 8555 §7.4.2).
-     *
-     * When the CA offers alternate chains via Link: rel="alternate" headers, the
-     * first chain whose intermediates contain $issuer (case-insensitive substring)
-     * is returned. Falls back to the default chain when no match is found.
-     *
-     * Example: ->preferredChain('ISRG Root X1')
+     * Prefer a chain whose intermediates contain $issuer (case-insensitive substring match).
+     * Falls back to the CA's default chain when no alternate chain matches.
      */
     public function preferredChain(string $issuer): self
     {
@@ -203,11 +160,7 @@ class CoyoteCert
         return $this;
     }
 
-    /**
-     * Register a callback invoked after every successful certificate issuance.
-     * The callback receives the issued StoredCertificate as its sole argument.
-     * Multiple callbacks may be registered; they run in registration order.
-     */
+    /** Callback invoked after every successful issuance. Receives the StoredCertificate. */
     public function onIssued(callable $callback): self
     {
         $this->onIssuedCallbacks[] = $callback;
@@ -216,10 +169,8 @@ class CoyoteCert
     }
 
     /**
-     * Register a callback invoked after a certificate is renewed (i.e. an existing
-     * certificate was replaced). Fires in addition to onIssued callbacks.
-     * The callback receives the new StoredCertificate as its sole argument.
-     * Multiple callbacks may be registered; they run in registration order.
+     * Callback invoked when an existing certificate is replaced.
+     * Fires after onIssued callbacks. Receives the new StoredCertificate.
      */
     public function onRenewed(callable $callback): self
     {
@@ -228,19 +179,13 @@ class CoyoteCert
         return $this;
     }
 
-    /**
-     * Set the HTTP timeout in seconds for the built-in curl client.
-     * No-op when a custom PSR-18 client is configured.
-     */
+    /** No-op when a custom PSR-18 client is configured. */
     public function withHttpTimeout(int $seconds): static
     {
         if ($this->httpClient instanceof HttpClient) {
             $this->httpClient->setTimeout($seconds);
         } elseif ($this->httpClient === null) {
-            // Client is lazily created; store for later application.
-            // We create a Client now with the desired timeout so it's ready.
-            $client           = new HttpClient(timeout: $seconds);
-            $this->httpClient = $client;
+            $this->httpClient = new HttpClient(timeout: $seconds);
         }
 
         return $this;
@@ -248,9 +193,6 @@ class CoyoteCert
 
     // ── Queries ───────────────────────────────────────────────────────────────
 
-    /**
-     * Returns true when no valid certificate is stored or it expires within $daysBeforeExpiry days.
-     */
     public function needsRenewal(int $daysBeforeExpiry = 30): bool
     {
         if ($this->storage === null || empty($this->domains)) {
@@ -274,9 +216,6 @@ class CoyoteCert
 
     // ── Terminal actions ──────────────────────────────────────────────────────
 
-    /**
-     * Issue a new certificate unconditionally.
-     */
     public function issue(): StoredCertificate
     {
         $this->validate();
@@ -292,11 +231,7 @@ class CoyoteCert
             }
         }
 
-        $challengeHandler = $this->challengeHandler;
-
-        if ($challengeHandler === null) {
-            throw new AcmeException('No challenge handler configured.');
-        }
+        $challengeHandler = $this->challengeHandler ?? throw new AcmeException('No challenge handler configured.');
 
         $api = new Api(
             provider: $this->provider,
@@ -330,6 +265,38 @@ class CoyoteCert
         $this->fireIssuedCallbacks($stored, isRenewal: $existingCert !== null);
 
         return $stored;
+    }
+
+    /** Issue only when the certificate is absent or expires within $daysBeforeExpiry days. */
+    public function issueOrRenew(int $daysBeforeExpiry = 30): StoredCertificate
+    {
+        if (!$this->needsRenewal($daysBeforeExpiry)) {
+            // needsRenewal() returns false only when storage is set and a cert exists
+            return $this->storage?->getCertificate($this->domains[0], $this->certKeyType)
+                ?? throw new AcmeException('Certificate unexpectedly missing from storage.');
+        }
+
+        return $this->issue();
+    }
+
+    /** Requires storage — the account key is used to sign the revocation request. */
+    public function revoke(StoredCertificate $cert, RevocationReason $reason = RevocationReason::Unspecified): bool
+    {
+        if ($this->storage === null) {
+            throw new AcmeException(
+                'No storage configured. Call ->storage() before revoking.',
+            );
+        }
+
+        $api = new Api(
+            provider: $this->provider,
+            storage: $this->storage,
+            logger: $this->logger,
+            httpClient: $this->httpClient,
+            accountKeyType: $this->accountKeyType,
+        );
+
+        return $api->certificate()->revoke($cert->certificate, $reason->value);
     }
 
     // ── Private issue() helpers ───────────────────────────────────────────────
@@ -379,10 +346,8 @@ class CoyoteCert
         }
     }
 
-    private function fetchAndStoreCertificate(
-        Api $api,
-        OrderData $order,
-    ): StoredCertificate {
+    private function fetchAndStoreCertificate(Api $api, OrderData $order): StoredCertificate
+    {
         $certKey    = OpenSsl::generateKey($this->certKeyType);
         $certKeyPem = OpenSsl::openSslKeyToString($certKey);
         $csr        = OpenSsl::generateCsr($this->domains, $certKey);
@@ -431,49 +396,6 @@ class CoyoteCert
         }
     }
 
-    /**
-     * Revoke a previously issued certificate.
-     *
-     * Requires storage to be configured (the account key is used to sign the request).
-     */
-    public function revoke(StoredCertificate $cert, RevocationReason $reason = RevocationReason::Unspecified): bool
-    {
-        if ($this->storage === null) {
-            throw new AcmeException(
-                'No storage configured. Call ->storage() before revoking.',
-            );
-        }
-
-        $api = new Api(
-            provider: $this->provider,
-            storage: $this->storage,
-            logger: $this->logger,
-            httpClient: $this->httpClient,
-            accountKeyType: $this->accountKeyType,
-        );
-
-        return $api->certificate()->revoke($cert->certificate, $reason->value);
-    }
-
-    /**
-     * Issue only when the certificate is absent or expires within $daysBeforeExpiry days.
-     * Returns the existing certificate if it is still valid.
-     */
-    public function issueOrRenew(int $daysBeforeExpiry = 30): StoredCertificate
-    {
-        if (!$this->needsRenewal($daysBeforeExpiry)) {
-            // needsRenewal() returns false only when storage is set and the cert exists.
-            if ($this->storage === null) {
-                throw new AcmeException('Certificate unexpectedly missing from storage.');
-            }
-
-            return $this->storage->getCertificate($this->domains[0], $this->certKeyType)
-                ?? throw new AcmeException('Certificate unexpectedly missing from storage.');
-        }
-
-        return $this->issue();
-    }
-
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private function ariWindow(StoredCertificate $cert): ?RenewalWindow
@@ -506,19 +428,6 @@ class CoyoteCert
         return $m[1];
     }
 
-    private static function isValidDomain(string $domain): bool
-    {
-        // Strip one leading wildcard label before validating the rest.
-        $check = str_starts_with($domain, '*.') ? substr($domain, 2) : $domain;
-
-        // Each label: 1–63 chars, alphanumeric + hyphens, no leading/trailing hyphen.
-        // At least two labels required (bare TLDs are not valid identifiers for ACME).
-        return (bool) preg_match(
-            '/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/',
-            $check,
-        );
-    }
-
     private function validate(): void
     {
         if (empty($this->domains)) {
@@ -536,14 +445,8 @@ class CoyoteCert
 
     private function detectChallengeType(): AuthorizationChallengeEnum
     {
-        if ($this->challengeHandler === null) {
-            throw new AcmeException(
-                'No challenge handler configured. Call ->challenge() before issuing a certificate.',
-            );
-        }
-
         foreach (AuthorizationChallengeEnum::cases() as $type) {
-            if ($this->challengeHandler->supports($type)) {
+            if ($this->challengeHandler?->supports($type)) {
                 return $type;
             }
         }
@@ -553,12 +456,7 @@ class CoyoteCert
         );
     }
 
-    /**
-     * Returns [token, keyAuthorization] from a typed validation DTO.
-     *
-     * @param Http01ValidationData|Dns01ValidationData|TlsAlpn01ValidationData $item
-     * @return array{0: string, 1: string}
-     */
+    /** @return array{0: string, 1: string} */
     private function extractTokenAndKeyAuth(Http01ValidationData|Dns01ValidationData|TlsAlpn01ValidationData $item): array
     {
         if ($item instanceof Http01ValidationData) {
@@ -570,5 +468,16 @@ class CoyoteCert
         }
 
         return [$item->name, $item->value];
+    }
+
+    private static function isValidDomain(string $domain): bool
+    {
+        // Strip one leading wildcard label before validating the rest
+        $check = str_starts_with($domain, '*.') ? substr($domain, 2) : $domain;
+
+        return (bool) preg_match(
+            '/^(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/',
+            $check,
+        );
     }
 }

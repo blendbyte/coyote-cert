@@ -7,14 +7,7 @@ use CoyoteCert\Exceptions\CryptoException;
 use CoyoteCert\Interfaces\AcmeAccountInterface;
 use CoyoteCert\Support\OpenSsl;
 
-/**
- * Internal adapter that makes a StorageInterface look like an AcmeAccountInterface.
- *
- * This is used by Api::accountAdapter() so that all existing endpoint classes
- * continue to work without modification.
- *
- * @internal
- */
+/** @internal */
 class StorageAccountAdapter implements AcmeAccountInterface
 {
     public function __construct(
@@ -22,6 +15,11 @@ class StorageAccountAdapter implements AcmeAccountInterface
         private readonly string           $providerSlug,
         private readonly KeyType          $keyType = KeyType::EC_P256,
     ) {}
+
+    public function exists(): bool
+    {
+        return $this->storage->hasAccountKey($this->providerSlug);
+    }
 
     public function getPrivateKey(): string
     {
@@ -45,20 +43,6 @@ class StorageAccountAdapter implements AcmeAccountInterface
         return $details['key'];
     }
 
-    public function exists(): bool
-    {
-        return $this->storage->hasAccountKey($this->providerSlug);
-    }
-
-    /**
-     * Generate and store a new key pair.
-     *
-     * When called without an explicit $keyTypeOverride, the key type set on
-     * construction is used. Pass a $keyTypeOverride to use a different key type
-     * for this single call without changing the adapter's default.
-     *
-     * Previously the $keyType parameter was silently ignored; now it is used.
-     */
     public function generateNewKeys(?KeyType $keyTypeOverride = null): bool
     {
         $keyType = $keyTypeOverride ?? $this->keyType;
@@ -69,7 +53,7 @@ class StorageAccountAdapter implements AcmeAccountInterface
         return true;
     }
 
-    public function savePrivateKey(string $pem, \CoyoteCert\Enums\KeyType $keyType): void
+    public function savePrivateKey(string $pem, KeyType $keyType): void
     {
         $this->storage->saveAccountKey($this->providerSlug, $pem, $keyType);
     }

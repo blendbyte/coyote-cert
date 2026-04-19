@@ -6,54 +6,34 @@ use CoyoteCert\DTO\EabCredentials;
 
 interface AcmeProviderInterface
 {
-    /**
-     * The full ACME directory URL (e.g. https://acme-v02.api.letsencrypt.org/directory).
-     */
     public function getDirectoryUrl(): string;
 
     /**
-     * A short, filesystem-safe identifier for this CA (e.g. "letsencrypt", "zerossl").
-     * Used to namespace account keys in storage so different CAs never share a key.
+     * Short, filesystem-safe identifier (e.g. "letsencrypt", "zerossl").
+     * Namespaces account keys in storage so different CAs never share a key.
+     * Must match [a-z0-9][a-z0-9-]*[a-z0-9] — no leading/trailing hyphens.
      */
     public function getSlug(): string;
 
-    /**
-     * Human-readable name of the CA (used in logs and error messages).
-     */
     public function getDisplayName(): string;
 
-    /**
-     * Whether this CA requires External Account Binding on registration.
-     */
     public function isEabRequired(): bool;
 
     /**
-     * Return EAB credentials for the given email address, or null if the caller
-     * must supply them manually (e.g. Google Trust Services).
-     *
-     * For ZeroSSL this auto-provisions credentials via their REST API.
-     * For CAs without EAB this always returns null.
+     * Return EAB credentials for registration, or null if not applicable.
+     * ZeroSSL auto-provisions credentials from an API key; pass email for that path.
      */
     public function getEabCredentials(string $email): ?EabCredentials;
 
-    /**
-     * Whether this CA supports ACME Profiles (e.g. Let's Encrypt's shortlived, classic, tlsserver).
-     * When false, the profile field is omitted from new-order requests.
-     */
+    /** When false, the profile field is omitted from new-order requests. */
     public function supportsProfiles(): bool;
 
-    /**
-     * Whether to verify the CA's TLS certificate.
-     * Should only be false for local Pebble test instances.
-     */
+    /** Set to false only for local test CAs (e.g. Pebble). */
     public function verifyTls(): bool;
 
     /**
-     * CAA DNS record identifiers that authorise this CA to issue certificates
-     * (e.g. ['letsencrypt.org'] for Let's Encrypt).
-     *
-     * Return an empty array to skip the CAA pre-check — appropriate for local
-     * test CAs (Pebble) or custom CAs whose CAA identifier is unknown.
+     * CAA DNS record values that authorise this CA (e.g. ['letsencrypt.org']).
+     * Return an empty array to skip the CAA pre-check.
      *
      * @return string[]
      */

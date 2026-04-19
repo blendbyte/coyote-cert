@@ -750,6 +750,23 @@ use CoyoteCert\Storage\InMemoryStorage;
 ->storage(new InMemoryStorage())
 ```
 
+### No storage
+
+If you don't call `->storage()` at all, `issue()` still works and returns a `StoredCertificate` with the cert and private key — nothing is persisted. Useful when your application manages its own persistence (database ORM, secret manager, etc.) and you only want the cert in-hand:
+
+```php
+$cert = CoyoteCert::with(new LetsEncrypt())
+    ->identifiers('example.com')
+    ->email('admin@example.com')
+    ->challenge(new Http01Handler('/var/www/html'))
+    ->issue();
+
+// Store wherever you like
+$myVault->put('example.com', $cert->fullchain, $cert->privateKey);
+```
+
+Note: without storage, `needsRenewal()` always returns `true` and `issueOrRenew()` will issue on every call. Manage renewal yourself, or use a custom storage backend.
+
 ### Custom storage
 
 Implement `StorageInterface` with eight methods:

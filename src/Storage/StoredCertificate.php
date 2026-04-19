@@ -3,6 +3,7 @@
 namespace CoyoteCert\Storage;
 
 use CoyoteCert\Enums\KeyType;
+use CoyoteCert\Exceptions\CryptoException;
 
 readonly class StoredCertificate
 {
@@ -137,7 +138,11 @@ readonly class StoredCertificate
     {
         $parsed = openssl_x509_parse($this->certificate);
 
-        return $parsed === false ? [] : $parsed;
+        if ($parsed === false) {
+            throw new CryptoException('Failed to parse stored certificate.');
+        }
+
+        return $parsed;
     }
 
     /**

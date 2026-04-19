@@ -146,12 +146,10 @@ it('sans() returns a single domain when only one SAN is present', function () {
     expect($cert->sans())->toBe(['only.example.com']);
 });
 
-it('sans() returns an empty array when the certificate has no SAN extension', function () {
-    // makeCert() uses a dummy PEM string — openssl_x509_parse() returns false/[]
-    // so the fallback empty-string path is exercised
+it('sans() throws CryptoException for an unparseable certificate', function () {
     $cert = makeCert(['certificate' => 'not-a-real-cert']);
 
-    expect($cert->sans())->toBe([]);
+    expect(fn() => $cert->sans())->toThrow(\CoyoteCert\Exceptions\CryptoException::class);
 });
 
 // ── serialNumber() ────────────────────────────────────────────────────────────
@@ -163,10 +161,10 @@ it('serialNumber() returns the lowercase hex serial', function () {
     expect($cert->serialNumber())->toBe('01');
 });
 
-it('serialNumber() returns an empty string for an unparseable certificate', function () {
+it('serialNumber() throws CryptoException for an unparseable certificate', function () {
     $cert = makeCert(['certificate' => 'not-a-real-cert']);
 
-    expect($cert->serialNumber())->toBe('');
+    expect(fn() => $cert->serialNumber())->toThrow(\CoyoteCert\Exceptions\CryptoException::class);
 });
 
 // ── authorityKeyId() ──────────────────────────────────────────────────────────
@@ -190,10 +188,10 @@ it('authorityKeyId() returns an uppercase colon-separated hex string when presen
     expect($aki)->toMatch('/^[0-9A-F]{2}(:[0-9A-F]{2})+$/');
 });
 
-it('authorityKeyId() returns null for an unparseable certificate', function () {
+it('authorityKeyId() throws CryptoException for an unparseable certificate', function () {
     $cert = makeCert(['certificate' => 'not-a-real-cert']);
 
-    expect($cert->authorityKeyId())->toBeNull();
+    expect(fn() => $cert->authorityKeyId())->toThrow(\CoyoteCert\Exceptions\CryptoException::class);
 });
 
 // ── issuer() ──────────────────────────────────────────────────────────────────
@@ -209,10 +207,10 @@ it('issuer() returns the issuer DN as an array', function () {
     expect($issuer['CN'])->toBe('Test Issuer');
 });
 
-it('issuer() returns an empty array for an unparseable certificate', function () {
+it('issuer() throws CryptoException for an unparseable certificate', function () {
     $cert = makeCert(['certificate' => 'not-a-real-cert']);
 
-    expect($cert->issuer())->toBe([]);
+    expect(fn() => $cert->issuer())->toThrow(\CoyoteCert\Exceptions\CryptoException::class);
 });
 
 // ── authorityKeyId() ──────────────────────────────────────────────────────────

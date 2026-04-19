@@ -442,14 +442,6 @@ class CoyoteCert
     }
 
     /**
-     * Alias for issue() — forces a fresh certificate regardless of expiry.
-     */
-    public function renew(): StoredCertificate
-    {
-        return $this->issue();
-    }
-
-    /**
      * Revoke a previously issued certificate.
      *
      * Requires storage to be configured (the account key is used to sign the request).

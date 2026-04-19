@@ -52,12 +52,7 @@ class FilesystemStorage implements StorageInterface
 
     public function hasCertificate(string $domain, KeyType $keyType): bool
     {
-        if (file_exists($this->certPath($domain, $keyType))) {
-            return true;
-        }
-
-        // Legacy path without key-type suffix — treated as present for migration.
-        return file_exists($this->legacyCertPath($domain));
+        return file_exists($this->certPath($domain, $keyType));
     }
 
     public function getCertificate(string $domain, KeyType $keyType): ?StoredCertificate
@@ -65,26 +60,7 @@ class FilesystemStorage implements StorageInterface
         $path = $this->certPath($domain, $keyType);
 
         if (!file_exists($path)) {
-            // Attempt transparent migration of a legacy single-cert file.
-            $legacy = $this->legacyCertPath($domain);
-
-            if (!file_exists($legacy)) {
-                return null;
-            }
-
-            $data = json_decode($this->readFile($legacy), true, 512, JSON_THROW_ON_ERROR);
-            $cert = StoredCertificate::fromArray($data);
-
-            // Only migrate when the legacy cert's key type matches what's requested.
-            if ($cert->keyType !== $keyType) {
-                return null;
-            }
-
-            $this->ensureDirectory();
-            $this->writeFile($path, json_encode($cert->toArray(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-            unlink($legacy);
-
-            return $cert;
+            return null;
         }
 
         $data = json_decode($this->readFile($path), true, 512, JSON_THROW_ON_ERROR);
@@ -110,24 +86,17 @@ class FilesystemStorage implements StorageInterface
     {
         $path = $this->certPath($domain, $keyType);
 
-        if (file_exists($path)) {
-            unlink($path);
-            $base = $this->pemBase($domain, $keyType);
-            foreach (['certificate.pem', 'private_key.pem', 'fullchain.pem', 'ca.pem'] as $file) {
-                $p = $base . $file;
-                if (file_exists($p)) {
-                    unlink($p);
-                }
-            }
-
+        if (!file_exists($path)) {
             return;
         }
 
-        // Also remove a legacy file if it exists for this domain.
-        $legacy = $this->legacyCertPath($domain);
-
-        if (file_exists($legacy)) {
-            unlink($legacy);
+        unlink($path);
+        $base = $this->pemBase($domain, $keyType);
+        foreach (['certificate.pem', 'private_key.pem', 'fullchain.pem', 'ca.pem'] as $file) {
+            $p = $base . $file;
+            if (file_exists($p)) {
+                unlink($p);
+            }
         }
     }
 
@@ -168,14 +137,6 @@ class FilesystemStorage implements StorageInterface
         $safe = preg_replace('/[^a-zA-Z0-9._\-]/', '_', $domain);
 
         return $this->dir() . $safe . '.' . $keyType->value . '.';
-    }
-
-    /** Pre-v2 path — one cert per domain, no key-type suffix. */
-    private function legacyCertPath(string $domain): string
-    {
-        $safe = preg_replace('/[^a-zA-Z0-9._\-]/', '_', $domain);
-
-        return $this->dir() . $safe . '.cert.json';
     }
 
     private function dir(): string

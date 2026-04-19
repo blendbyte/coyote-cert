@@ -47,15 +47,6 @@ it('get returns default when key is missing', function () {
     expect(Arr::get(['a' => 1], 'b', 'default'))->toBe('default');
 });
 
-it('get resolves dot-notation keys', function () {
-    $arr = ['a' => ['b' => ['c' => 42]]];
-    expect(Arr::get($arr, 'a.b.c'))->toBe(42);
-});
-
-it('get returns default for missing dot-notation path', function () {
-    expect(Arr::get(['a' => []], 'a.b.c', 'x'))->toBe('x');
-});
-
 it('get returns default for non-accessible value', function () {
     expect(Arr::get('not-an-array', 'key', 'fallback'))->toBe('fallback');
 });

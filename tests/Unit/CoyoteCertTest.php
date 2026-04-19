@@ -263,14 +263,6 @@ it('issueOrRenew() calls issue() when renewal is needed', function () {
         ->toThrow(AcmeException::class, 'No identifiers');
 });
 
-// ── renew() alias ─────────────────────────────────────────────────────────────
-
-it('renew() is an alias for issue() and throws when no identifiers are configured', function () {
-    // renew() delegates to issue() → validate() → throws "No identifiers"
-    expect(fn() => makeCoyote()->challenge(makeNoOpHandler())->renew())
-        ->toThrow(AcmeException::class, 'No identifiers');
-});
-
 // ── ariWindow() (tested via needsRenewal()) ───────────────────────────────────
 
 it('needsRenewal() falls back to remainingDays when caBundle has no PEM cert headers', function () {

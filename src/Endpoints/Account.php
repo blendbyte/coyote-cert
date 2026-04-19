@@ -10,6 +10,7 @@ use CoyoteCert\Exceptions\CryptoException;
 use CoyoteCert\Http\Response;
 use CoyoteCert\Support\Base64;
 use CoyoteCert\Support\JsonWebKey;
+use CoyoteCert\Support\EcSigning;
 use CoyoteCert\Support\JsonWebSignature;
 use CoyoteCert\Support\KeyId;
 use CoyoteCert\Support\OpenSsl;
@@ -271,7 +272,7 @@ class Account extends Endpoint
         }
 
         if ($isEc) {
-            $signed = JsonWebSignature::derToRaw($signed, $sigLen);
+            $signed = EcSigning::derToRaw($signed, $sigLen);
         }
 
         return [

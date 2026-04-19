@@ -64,12 +64,4 @@ class JsonWebSignature
         ];
     }
 
-    /**
-     * Convert a DER-encoded ECDSA signature to raw R||S format.
-     * Kept as a public proxy for backward compatibility.
-     */
-    public static function derToRaw(string $der, int $componentLen): string
-    {
-        return EcSigning::derToRaw($der, $componentLen);
-    }
 }

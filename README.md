@@ -856,14 +856,6 @@ $cert = CoyoteCert::with(new LetsEncrypt())
 
 Safe to call as often as you like. It does nothing when the certificate is still healthy. Run it in a cron job and forget about it.
 
-### renew()
-
-Alias for `issue()`. Forces a fresh certificate regardless of expiry.
-
-```php
-$cert = $coyote->renew();
-```
-
 ### needsRenewal()
 
 Check whether a renewal is needed without triggering one.
@@ -1379,7 +1371,6 @@ CoyoteCert::with(AcmeProviderInterface $provider)  // factory: pick your CA
 | `->onIssued(callable)` | fluent | none | Callback fired after every successful issuance; receives `StoredCertificate` |
 | `->onRenewed(callable)` | fluent | none | Callback fired when an existing cert is replaced; receives `StoredCertificate` |
 | `->issue()` | terminal | | Issue unconditionally; returns `StoredCertificate` |
-| `->renew()` | terminal | | Alias for `issue()` |
 | `->issueOrRenew(int $days = 30)` | terminal | | Issue only when needed; returns `StoredCertificate` |
 | `->needsRenewal(int $days = 30)` | query | | `true` if renewal is needed |
 | `->revoke(StoredCertificate, RevocationReason)` | terminal | | Revoke a certificate |

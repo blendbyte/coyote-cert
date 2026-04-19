@@ -103,22 +103,6 @@ it('stores RSA and ECDSA certificates in separate files', function () {
     expect(glob($this->dir . '/example.com.*.cert.json'))->toHaveCount(2);
 });
 
-it('migrates a legacy cert file to the key-type-suffixed path', function () {
-    // Write a legacy file (no key-type suffix, defaults to EC_P256 on read).
-    $cert   = makeFileCert(KeyType::EC_P256);
-    $safe   = 'example.com';
-    $legacy = $this->dir . '/' . $safe . '.cert.json';
-    mkdir($this->dir, 0o700, true);
-    file_put_contents($legacy, json_encode($cert->toArray()));
-
-    $loaded = $this->storage->getCertificate('example.com', KeyType::EC_P256);
-
-    expect($loaded)->not->toBeNull();
-    // Legacy file should be gone; new file should exist.
-    expect(file_exists($legacy))->toBeFalse();
-    expect(file_exists($this->dir . '/example.com.EC_P256.cert.json'))->toBeTrue();
-});
-
 it('getAccountKey throws when account key file does not exist', function () {
     expect(fn() => $this->storage->getAccountKey())
         ->toThrow(\CoyoteCert\Exceptions\StorageException::class, 'does not exist');

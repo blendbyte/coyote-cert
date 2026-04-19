@@ -96,7 +96,11 @@ class StatusCommand extends Command
         $expiresStr     = sprintf('%s (%d days remaining)', $expiresDate, $days);
         $issuedDate     = $cert->issuedAt->format('M j, Y');
         $identifiersStr = implode(', ', $cert->domains);
-        $sans           = $cert->sans();
+        try {
+            $sans = $cert->sans();
+        } catch (\CoyoteCert\Exceptions\CryptoException) {
+            $sans = [];
+        }
         $sansStr        = empty($sans) ? $identifiersStr : implode(', ', $sans);
         $keyLabel       = match ($cert->keyType) {
             KeyType::EC_P256  => 'EC P-256',

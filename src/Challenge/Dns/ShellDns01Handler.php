@@ -90,6 +90,7 @@ class ShellDns01Handler extends AbstractDns01Handler
 
         if ($exitCode !== 0) {
             $detail = $stderr !== '' ? ' — ' . $stderr : '';
+
             throw new ChallengeException(
                 sprintf('ShellDns01Handler: "%s" exited with code %d.%s', $cmdTemplate, $exitCode, $detail),
             );

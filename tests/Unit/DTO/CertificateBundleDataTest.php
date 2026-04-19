@@ -29,13 +29,11 @@ it('parses a chain with multiple certificates', function () use ($certA, $certB,
     expect($bundle->caBundle)->not->toContain($certA);
 });
 
-it('returns empty strings when no certificate is found', function () {
-    $r      = new Response([], '', 200, 'no cert here');
-    $bundle = CertificateBundleData::fromResponse($r);
+it('throws when no certificate is found in the response', function () {
+    $r = new Response([], '', 200, 'no cert here');
 
-    expect($bundle->certificate)->toBe('');
-    expect($bundle->fullchain)->toBe('');
-    expect($bundle->caBundle)->toBe('');
+    expect(fn() => CertificateBundleData::fromResponse($r))
+        ->toThrow(\CoyoteCert\Exceptions\AcmeException::class);
 });
 
 it('is readonly — properties cannot be changed', function () use ($certA) {

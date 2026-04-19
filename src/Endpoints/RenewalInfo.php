@@ -75,7 +75,7 @@ class RenewalInfo extends Endpoint
         $decoded = base64_decode(implode('', array_map(
             'trim',
             array_filter(explode("\n", $pem), static fn(string $l): bool => !str_starts_with($l, '-----')),
-        )));
+        )), true);
 
         if ($decoded === false) {
             throw new CryptoException('Failed to decode issuer public key DER.');

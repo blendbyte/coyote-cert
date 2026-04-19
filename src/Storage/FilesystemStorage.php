@@ -195,6 +195,8 @@ class FilesystemStorage implements StorageInterface
             );
         }
 
+        $isPublic = false;
+
         if (str_ends_with($path, '.pem')) {
             $isPublic = str_ends_with($path, 'certificate.pem')
                      || str_ends_with($path, 'fullchain.pem')

@@ -40,11 +40,6 @@ it('does not support dns-01', function () {
     expect($handler->supports(AuthorizationChallengeEnum::DNS))->toBeFalse();
 });
 
-it('does not support dns-persist-01', function () {
-    $handler = new TestTlsAlpn01Handler();
-    expect($handler->supports(AuthorizationChallengeEnum::DNS_PERSIST))->toBeFalse();
-});
-
 it('deploy is called and records the arguments', function () {
     $handler = new TestTlsAlpn01Handler();
     $handler->deploy('example.com', 'tok123', 'tok123.thumbprint');

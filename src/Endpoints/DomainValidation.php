@@ -92,20 +92,6 @@ class DomainValidation extends Endpoint
             }
 
             if (
-                (is_null($authChallenge) || $authChallenge === AuthorizationChallengeEnum::DNS_PERSIST)
-                && !empty($domainValidationData->dnsPersist)
-            ) {
-                $token            = $domainValidationData->dnsPersist['token'];
-                $keyAuth          = $token . '.' . $thumbprint;
-                $authorizations[] = new Dns01ValidationData(
-                    identifier: $domainValidationData->identifier['value'],
-                    name: '_acme-challenge',
-                    value: DnsDigest::make($token, $thumbprint),
-                    keyAuthorization: $keyAuth,
-                );
-            }
-
-            if (
                 (is_null($authChallenge) || $authChallenge === AuthorizationChallengeEnum::TLS_ALPN)
                 && !empty($domainValidationData->tlsAlpn)
             ) {

@@ -68,10 +68,6 @@ Filesystem with file locking, PDO for MySQL/PostgreSQL/SQLite, and in-memory for
 
 Cloudflare, Hetzner DNS, DigitalOcean, ClouDNS, AWS Route53, and shell/exec, all with automatic zone detection, post-deploy propagation checking, and fluent timeout controls. Route53 handles SigV4 signing itself; no AWS SDK required. Wildcards need DNS-01, and CoyoteCert has the providers covered.
 
-### ⚡ dns-persist-01: skip the propagation wait every renewal cycle
-
-Deploy the TXT record once, leave it permanently. Every renewal validates against the same record with no propagation wait and no DNS dance every 90 days.
-
 ### 🪨 Fails fast, before it costs you
 
 CoyoteCert checks CAA DNS records for every domain before touching the CA. If a record blocks your chosen CA, you get a `CaaException` immediately, not after burning a rate-limit attempt. Same pre-flight logic verifies your HTTP token or DNS TXT record locally before the CA comes knocking. Unlike a certain cartoon coyote, we check for obstacles before ordering supplies.
@@ -485,7 +481,7 @@ The storage namespace slug is derived automatically from the directory URL's hos
 
 ## Challenge handlers
 
-ACME requires domain ownership proof via a challenge. CoyoteCert ships with an HTTP-01 handler and abstract bases for DNS-persist-01 and TLS-ALPN-01. DNS-01 is implemented via `ChallengeHandlerInterface`.
+ACME requires domain ownership proof via a challenge. CoyoteCert ships with handlers for http-01, dns-01, and tls-alpn-01.
 
 ### http-01
 
@@ -534,31 +530,6 @@ class MyDns01Handler implements ChallengeHandlerInterface
 ```php
 ->challenge(new MyDns01Handler())
 ```
-
-### dns-persist-01
-
-A CoyoteCert-specific strategy: deploy the TXT record once and leave it permanently. Every renewal validates against the same record with no propagation wait and no deploy/cleanup cycle.
-
-Extend `DnsPersist01Handler` and implement `deploy()`. The `cleanup()` method is a no-op by design.
-
-```php
-use CoyoteCert\Challenge\DnsPersist01Handler;
-
-class Route53DnsPersist01Handler extends DnsPersist01Handler
-{
-    public function deploy(string $domain, string $token, string $keyAuthorization): void
-    {
-        // The key auth value changes on every order, so always upsert.
-        Route53::upsertTxtRecord('_acme-challenge.' . $domain, $keyAuthorization);
-    }
-}
-```
-
-```php
-->challenge(new Route53DnsPersist01Handler())
-```
-
-> **Note:** The TXT record value (`$keyAuthorization`) changes on every order, even with dns-persist-01. Your `deploy()` must update (upsert) the record every time.
 
 ### tls-alpn-01
 
@@ -1077,7 +1048,7 @@ AcmeException          - base; always safe to catch
 
 ## Wildcard and multi-domain certificates
 
-Pass an array of domains to `->identifiers()`. Wildcards need DNS-01 or dns-persist-01.
+Pass an array of domains to `->identifiers()`. Wildcards need dns-01.
 
 ```php
 // Multi-domain (SAN) certificate via HTTP-01

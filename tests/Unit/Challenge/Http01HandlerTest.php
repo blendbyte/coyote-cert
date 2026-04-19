@@ -29,10 +29,6 @@ it('does not support dns-01', function () {
     expect($this->handler->supports(AuthorizationChallengeEnum::DNS))->toBeFalse();
 });
 
-it('does not support dns-persist-01', function () {
-    expect($this->handler->supports(AuthorizationChallengeEnum::DNS_PERSIST))->toBeFalse();
-});
-
 it('deploy creates the challenge file', function () {
     $this->handler->deploy('example.com', 'tokenABC', 'tokenABC.thumbprint');
 

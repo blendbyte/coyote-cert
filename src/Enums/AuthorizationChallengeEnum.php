@@ -4,8 +4,7 @@ namespace CoyoteCert\Enums;
 
 enum AuthorizationChallengeEnum: string
 {
-    case HTTP        = 'http-01';
-    case DNS         = 'dns-01';
-    case DNS_PERSIST = 'dns-persist-01';
-    case TLS_ALPN    = 'tls-alpn-01';
+    case HTTP     = 'http-01';
+    case DNS      = 'dns-01';
+    case TLS_ALPN = 'tls-alpn-01';
 }

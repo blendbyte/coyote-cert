@@ -12,7 +12,6 @@ readonly class DomainValidationData
      * @param array<string, mixed> $identifier
      * @param array<string, mixed> $file
      * @param array<string, mixed> $dns
-     * @param array<string, mixed> $dnsPersist
      * @param array<string, mixed> $tlsAlpn
      * @param array<string, mixed> $validationRecord
      */
@@ -22,7 +21,6 @@ readonly class DomainValidationData
         public string $expires,
         public array $file,
         public array $dns,
-        public array $dnsPersist,
         public array $tlsAlpn = [],
         public array $validationRecord = [],
     ) {}
@@ -38,7 +36,6 @@ readonly class DomainValidationData
             expires: $body['expires'],
             file: self::getValidationByType($challenges, AuthorizationChallengeEnum::HTTP),
             dns: self::getValidationByType($challenges, AuthorizationChallengeEnum::DNS),
-            dnsPersist: self::getValidationByType($challenges, AuthorizationChallengeEnum::DNS_PERSIST),
             tlsAlpn: self::getValidationByType($challenges, AuthorizationChallengeEnum::TLS_ALPN),
             validationRecord: Arr::get($body, 'validationRecord', []),
         );
@@ -75,7 +72,7 @@ readonly class DomainValidationData
 
     public function hasErrors(): bool
     {
-        foreach ([AuthorizationChallengeEnum::HTTP, AuthorizationChallengeEnum::DNS, AuthorizationChallengeEnum::DNS_PERSIST, AuthorizationChallengeEnum::TLS_ALPN] as $type) {
+        foreach ([AuthorizationChallengeEnum::HTTP, AuthorizationChallengeEnum::DNS, AuthorizationChallengeEnum::TLS_ALPN] as $type) {
             $data = $this->challengeData($type);
             if (!empty($data['error'])) {
                 return true;
@@ -94,7 +91,7 @@ readonly class DomainValidationData
 
         $errors = [];
 
-        foreach ([AuthorizationChallengeEnum::HTTP, AuthorizationChallengeEnum::DNS, AuthorizationChallengeEnum::DNS_PERSIST, AuthorizationChallengeEnum::TLS_ALPN] as $type) {
+        foreach ([AuthorizationChallengeEnum::HTTP, AuthorizationChallengeEnum::DNS, AuthorizationChallengeEnum::TLS_ALPN] as $type) {
             $data = $this->challengeData($type);
             if (!empty($data)) {
                 $errors[] = [
@@ -111,10 +108,9 @@ readonly class DomainValidationData
     public function challengeData(AuthorizationChallengeEnum $type): array
     {
         return match ($type) {
-            AuthorizationChallengeEnum::HTTP        => $this->file,
-            AuthorizationChallengeEnum::DNS         => $this->dns,
-            AuthorizationChallengeEnum::DNS_PERSIST => $this->dnsPersist,
-            AuthorizationChallengeEnum::TLS_ALPN    => $this->tlsAlpn,
+            AuthorizationChallengeEnum::HTTP     => $this->file,
+            AuthorizationChallengeEnum::DNS      => $this->dns,
+            AuthorizationChallengeEnum::TLS_ALPN => $this->tlsAlpn,
         };
     }
 }

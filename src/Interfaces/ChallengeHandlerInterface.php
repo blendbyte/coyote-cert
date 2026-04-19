@@ -22,8 +22,6 @@ interface ChallengeHandlerInterface
      *   dns-01   — $token is unused; $keyAuthorization is the base64url-encoded
      *              SHA-256 digest to publish as the _acme-challenge TXT record.
      *
-     *   dns-persist-01 — same as dns-01; the TXT record must remain until cleanup().
-     *
      *   tls-alpn-01 — $token is the ACME token; $keyAuthorization is the full key
      *                 authorization (token.thumbprint). Use TlsAlpn01Handler::generateAcmeCertificate()
      *                 to generate the RFC 8737 validation certificate, then serve it on

@@ -50,10 +50,6 @@ it('does not support http-01', function () {
     expect((new TestDns01Handler())->supports(AuthorizationChallengeEnum::HTTP))->toBeFalse();
 });
 
-it('does not support dns-persist-01', function () {
-    expect((new TestDns01Handler())->supports(AuthorizationChallengeEnum::DNS_PERSIST))->toBeFalse();
-});
-
 it('does not support tls-alpn-01', function () {
     expect((new TestDns01Handler())->supports(AuthorizationChallengeEnum::TLS_ALPN))->toBeFalse();
 });

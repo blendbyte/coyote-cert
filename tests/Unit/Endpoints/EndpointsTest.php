@@ -700,7 +700,6 @@ it('DomainValidation::getValidationData() builds HTTP validation item', function
         expires: '2099-01-01T00:00:00Z',
         file: ['type' => 'http-01', 'token' => 'abc123', 'url' => 'https://acme.example/ch/1'],
         dns: [],
-        dnsPersist: [],
         validationRecord: [],
     );
 
@@ -722,7 +721,6 @@ it('DomainValidation::getValidationData() builds DNS validation item', function 
         expires: '2099-01-01T00:00:00Z',
         file: [],
         dns: ['type' => 'dns-01', 'token' => 'dns-tok', 'url' => 'https://acme.example/ch/2'],
-        dnsPersist: [],
         validationRecord: [],
     );
 
@@ -731,27 +729,6 @@ it('DomainValidation::getValidationData() builds DNS validation item', function 
     expect($data)->toHaveCount(1);
     expect($data[0])->toBeInstanceOf(\CoyoteCert\DTO\Dns01ValidationData::class);
     expect($data[0]->name)->toBe('_acme-challenge');
-    expect($data[0]->identifier)->toBe('example.com');
-});
-
-it('DomainValidation::getValidationData() builds DNS_PERSIST validation item', function () {
-    $storage = withKeyStorage();
-    $api     = makeEndpointApi(endpointMock(), $storage);
-
-    $challenge = new DomainValidationData(
-        identifier: ['type' => 'dns', 'value' => 'example.com'],
-        status: 'pending',
-        expires: '2099-01-01T00:00:00Z',
-        file: [],
-        dns: [],
-        dnsPersist: ['type' => 'dns-persist-01', 'token' => 'persist-tok', 'url' => 'https://acme.example/ch/3'],
-        validationRecord: [],
-    );
-
-    $data = $api->domainValidation()->getValidationData([$challenge], AuthorizationChallengeEnum::DNS_PERSIST);
-
-    expect($data)->toHaveCount(1);
-    expect($data[0])->toBeInstanceOf(\CoyoteCert\DTO\Dns01ValidationData::class);
     expect($data[0]->identifier)->toBe('example.com');
 });
 
@@ -765,7 +742,6 @@ it('DomainValidation::getValidationData() builds TLS-ALPN validation item', func
         expires: '2099-01-01T00:00:00Z',
         file: [],
         dns: [],
-        dnsPersist: [],
         validationRecord: [],
         tlsAlpn: ['type' => 'tls-alpn-01', 'token' => 'tls-tok', 'url' => 'https://acme.example/ch/4'],
     );
@@ -788,7 +764,6 @@ it('DomainValidation::getValidationData() with null challenge type returns match
         expires: '2099-01-01T00:00:00Z',
         file: ['type' => 'http-01', 'token' => 'http-tok', 'url' => 'https://acme.example/ch/1'],
         dns: ['type' => 'dns-01',  'token' => 'dns-tok',  'url' => 'https://acme.example/ch/2'],
-        dnsPersist: [],
         validationRecord: [],
     );
 
@@ -810,7 +785,6 @@ it('DomainValidation::start() sends HTTP challenge with localTest=false', functi
         expires: '2099-01-01T00:00:00Z',
         file: ['type' => 'http-01', 'token' => 'tok', 'url' => 'https://acme.example/ch/1'],
         dns: [],
-        dnsPersist: [],
         validationRecord: [],
     );
 
@@ -831,32 +805,10 @@ it('DomainValidation::start() sends DNS challenge with localTest=false', functio
         expires: '2099-01-01T00:00:00Z',
         file: [],
         dns: ['type' => 'dns-01', 'token' => 'tok', 'url' => 'https://acme.example/ch/2'],
-        dnsPersist: [],
         validationRecord: [],
     );
 
     $response = $api->domainValidation()->start(makeAccountData(), $dvd, AuthorizationChallengeEnum::DNS, false);
-    expect($response->getHttpResponseCode())->toBe(200);
-});
-
-it('DomainValidation::start() sends DNS_PERSIST challenge with localTest=false', function () {
-    $api = makeEndpointApi(endpointMock(
-        getBody: directoryBody(),
-        postBody: [],
-        postCode: 200,
-    ), withKeyStorage());
-
-    $dvd = new DomainValidationData(
-        identifier: ['type' => 'dns', 'value' => 'example.com'],
-        status: 'pending',
-        expires: '2099-01-01T00:00:00Z',
-        file: [],
-        dns: [],
-        dnsPersist: ['type' => 'dns-persist-01', 'token' => 'tok', 'url' => 'https://acme.example/ch/3'],
-        validationRecord: [],
-    );
-
-    $response = $api->domainValidation()->start(makeAccountData(), $dvd, AuthorizationChallengeEnum::DNS_PERSIST, false);
     expect($response->getHttpResponseCode())->toBe(200);
 });
 
@@ -879,7 +831,6 @@ it('DomainValidation::start() with localTest=true passes HTTP local check when b
         expires: '2099-01-01T00:00:00Z',
         file: ['type' => 'http-01', 'token' => $token, 'url' => 'https://acme.example/ch/1'],
         dns: [],
-        dnsPersist: [],
         validationRecord: [],
     );
 
@@ -898,7 +849,6 @@ it('DomainValidation::start() throws DomainValidationException when challenge da
         expires: '2099-01-01T00:00:00Z',
         file: [],
         dns: [],  // empty — no DNS challenge available
-        dnsPersist: [],
         validationRecord: [],
     );
 
@@ -919,7 +869,6 @@ it('DomainValidation::start() logs error when challenge POST returns >= 400', fu
         expires: '2099-01-01T00:00:00Z',
         file: ['type' => 'http-01', 'token' => 'tok', 'url' => 'https://acme.example/ch/1'],
         dns: [],
-        dnsPersist: [],
         validationRecord: [],
     );
 

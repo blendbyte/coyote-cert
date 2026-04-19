@@ -31,7 +31,7 @@ body:
       options:
         - http-01
         - dns-01
-        - dns-persist-01
+        - tls-alpn-01
         - Not applicable (revocation / storage / other)
     validations:
       required: true

@@ -52,23 +52,6 @@ it('challengeData returns dns-01 data', function () {
     expect($data['token'])->toBe('tok-dns');
 });
 
-it('challengeData returns empty array when dns-persist-01 is not in response', function () {
-    $dv   = DomainValidationData::fromResponse(makeDvResponse());
-    $data = $dv->challengeData(AuthorizationChallengeEnum::DNS_PERSIST);
-
-    expect($data)->toBe([]);
-});
-
-it('challengeData returns dns-persist-01 data when present', function () {
-    $dv = DomainValidationData::fromResponse(makeDvResponse(extraChallenges: [
-        ['type' => 'dns-persist-01', 'token' => 'tok-persist', 'url' => 'https://acme.example.com/chall/3'],
-    ]));
-
-    $data = $dv->challengeData(AuthorizationChallengeEnum::DNS_PERSIST);
-    expect($data['type'])->toBe('dns-persist-01');
-    expect($data['token'])->toBe('tok-persist');
-});
-
 it('status helpers return correct values', function () {
     expect(DomainValidationData::fromResponse(makeDvResponse('pending'))->isPending())->toBeTrue();
     expect(DomainValidationData::fromResponse(makeDvResponse('valid'))->isValid())->toBeTrue();

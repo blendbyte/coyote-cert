@@ -40,6 +40,7 @@ class CoyoteCert
     private bool                       $localTest        = true;
     private bool                       $skipCaaCheck     = false;
     private string                     $preferredChain   = '';
+    private int                        $pollAttempts     = 10;
     /** @var callable[] */
     private array $onIssuedCallbacks = [];
     /** @var callable[] */
@@ -129,6 +130,14 @@ class CoyoteCert
     public function accountKeyType(KeyType $type): self
     {
         $this->accountKeyType = $type;
+
+        return $this;
+    }
+
+    /** Maximum number of polling attempts when waiting for challenges to pass (default: 10). */
+    public function pollAttempts(int $attempts): self
+    {
+        $this->pollAttempts = $attempts;
 
         return $this;
     }
@@ -332,7 +341,7 @@ class CoyoteCert
             $api->domainValidation()->start($account, $domainValidation, $challengeType, $this->localTest);
         }
 
-        $allPassed = $api->domainValidation()->allChallengesPassed($order);
+        $allPassed = $api->domainValidation()->allChallengesPassed($order, $this->pollAttempts);
 
         foreach ($validationData as $item) {
             [$token] = $this->extractTokenAndKeyAuth($item);

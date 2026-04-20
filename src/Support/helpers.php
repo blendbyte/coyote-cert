@@ -1,6 +1,10 @@
 <?php
 
-if (!function_exists('value')) {
+namespace CoyoteCert\Support;
+
+use Closure;
+
+if (!function_exists(__NAMESPACE__ . '\\value')) {
     /**
      * Return the default value of the given value.
      *

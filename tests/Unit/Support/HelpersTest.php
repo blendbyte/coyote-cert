@@ -1,5 +1,7 @@
 <?php
 
+use function CoyoteCert\Support\value;
+
 it('value returns scalars unchanged', function () {
     expect(value(42))->toBe(42);
     expect(value('hello'))->toBe('hello');

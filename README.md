@@ -40,6 +40,7 @@ ACME (Automatic Certificate Management Environment) is the protocol behind free,
 - [Preferred chain selection](#preferred-chain-selection)
 - [Key types](#key-types)
 - [Certificate revocation](#certificate-revocation)
+- [Security](#security)
 - [PSR-18 HTTP client](#psr-18-http-client)
 - [HTTP timeout](#http-timeout)
 - [Logging](#logging)
@@ -51,6 +52,24 @@ ACME (Automatic Certificate Management Environment) is the protocol behind free,
 ---
 
 ## Why CoyoteCert
+
+### How it stacks up
+
+Every other crate in the ACME catalogue makes you do at least one of these manually: fetch EAB credentials, wire up a DNS provider, write the CLI wrapper, figure out ARI yourself. This one comes pre-loaded.
+
+| Feature | **CoyoteCert** | [ACMECert](https://github.com/skoerfgen/ACMECert) | [acmephp](https://github.com/acmephp/acmephp) | [kelunik/acme](https://github.com/kelunik/acme) | [yaac](https://github.com/afosto/yaac) |
+|---|:---:|:---:|:---:|:---:|:---:|
+| ARI (RFC 9773) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| EAB auto-provisioning ¹ | ✅ | manual | manual | ❌ | ❌ |
+| IP SANs (RFC 8738) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| TLS-ALPN-01 | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Built-in DNS providers | **6** | — | 3 | — | — |
+| CLI shipped with package | ✅ | — | ✅ | — | — |
+| Laravel integration | ✅ | — | — | — | — |
+
+<sup>¹ "auto-provisioning" means CoyoteCert fetches EAB credentials directly from the ZeroSSL API key (no copy-pasting tokens). "manual" means EAB is supported but credentials are your problem.</sup>
+
+Cells verified from each library's public repository, May 2026. If something's changed, open a PR. We check before merging.
 
 ### Every major CA, out of the box
 
@@ -123,6 +142,15 @@ composer require blendbyte/coyotecert
 First-party Laravel integration is available as a separate package: [`blendbyte/coyotecert-laravel`](https://github.com/blendbyte/coyotecert-laravel).
 
 Adds a service provider, config file, Artisan commands (`cert:issue`, `cert:renew`, `cert:status`, `cert:revoke`), HTTP-01 challenge served through your app via the cache store (no web server changes, works behind load balancers), Laravel Events, queue job support for DNS-01, and a daily scheduled renewal task. No boilerplate beyond publishing the config.
+
+```php
+// In a Laravel app
+use Blendbyte\CoyoteCertLaravel\Facades\Cert;
+
+Cert::for('example.com')->issueOrRenew();
+```
+
+Full docs and installation in the [companion repo](https://github.com/blendbyte/coyotecert-laravel).
 
 ---
 
@@ -240,9 +268,12 @@ server {
 
 **Cron, daily at 03:00, idempotent:**
 
+```bash
+# Recommended: randomize the start time to spread load on the CA
+0 3 * * * sleep $((RANDOM % 3600)) && php /usr/local/bin/renew-certs.php
 ```
-0 3 * * * php /usr/local/bin/renew-certs.php
-```
+
+Randomizing the start time within the hour avoids stampeding the CA at the same minute as everyone else's cron job. Let's Encrypt explicitly requests this.
 
 ---
 
@@ -362,11 +393,12 @@ The status line reflects time to expiry:
 
 ### Cron renewal
 
-```
-0 3 * * * coyote issue --identifier example.com --webroot /var/www/html --storage /etc/certs --email admin@example.com
+```bash
+# Recommended: randomize the start time to spread load on the CA
+0 3 * * * sleep $((RANDOM % 3600)) && coyote issue --identifier example.com --webroot /var/www/html --storage /etc/certs --email admin@example.com
 ```
 
-The command is idempotent: it does nothing until fewer than `--days` (default 30) remain, so running it daily is safe. Set it and forget it. Unlike certain Road Runner traps, this actually works unattended.
+The command is idempotent: it does nothing until fewer than `--days` (default 30) remain, so running it daily is safe. Randomizing the start time within the hour avoids stampeding the CA at the same minute as everyone else's cron job. Let's Encrypt explicitly requests this. Set it and forget it. Unlike certain Road Runner traps, this actually works unattended.
 
 ### Help and version
 
@@ -1124,9 +1156,12 @@ $cert = CoyoteCert::with(new LetsEncrypt())
 
 Add to crontab. Daily is fine; `issueOrRenew()` does nothing until renewal is actually due:
 
+```bash
+# Recommended: randomize the start time to spread load on the CA
+0 3 * * * sleep $((RANDOM % 3600)) && php /usr/local/bin/renew-certs.php
 ```
-0 3 * * * php /usr/local/bin/renew-certs.php
-```
+
+Randomizing the start time within the hour avoids stampeding the CA at the same minute as everyone else's cron job. Let's Encrypt explicitly requests this.
 
 ---
 
@@ -1232,6 +1267,14 @@ After revoking, delete the stored certificate so `issueOrRenew()` requests a fre
 ```php
 $storage->deleteCertificate('example.com', KeyType::EC_P256);
 ```
+
+---
+
+## Security
+
+- **Account keys are sensitive:** back them up, never commit them to git. Treat them like passwords.
+- **If the account key is lost,** you can re-register with the CA, but you lose ARI renewal history and any CA-side account associations.
+- **Filesystem storage** writes keys at `0600` and the storage directory at `0700`. PEM certificate files are `0644` and are safe to serve publicly.
 
 ---
 

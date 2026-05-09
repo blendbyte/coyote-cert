@@ -1467,6 +1467,125 @@ services:
       PEBBLE_VA_ALWAYS_VALID: "1"
 ```
 
+## Frequently asked questions
+
+### My HTTP-01 validation fails with 404, but the file is sitting right there.
+
+nginx found it first. nginx finds everything first, and usually not in a helpful way.
+
+`location /` swallows the request before it ever reaches `.well-known/acme-challenge/`. Add a dedicated block above your other location rules:
+
+```nginx
+location ^~ /.well-known/acme-challenge/ {
+    root /var/www/html;
+    default_type text/plain;
+}
+```
+
+The `^~` prefix stops nginx from even looking at regex locations once this prefix matches. Apache users: check that `AllowOverride None` is not blocking the directory, and that no `.htaccess` rule is redirecting HTTP to HTTPS before the token can be served.
+
+---
+
+### I'm behind Cloudflare's proxy. Does HTTP-01 work?
+
+Sometimes. If the SSL mode is "Full" or "Full (Strict)", Cloudflare terminates TLS itself and the challenge file usually gets through. If Always Use HTTPS is enabled, the 80-to-443 redirect fires before the token is ever served.
+
+Easiest fix: switch to DNS-01. Cloudflare is a [supported DNS provider](#cloudflare-1), so it is a one-line handler swap and the orange cloud stays orange.
+
+If you are committed to HTTP-01, grey-cloud the record (DNS only) during issuance, then flip it back. Cloudflare's proxy is not going anywhere, but it can be asked to step aside briefly.
+
+---
+
+### `issueOrRenew()` issues a fresh certificate on every single cron run.
+
+You are missing storage, or the path changes between runs. Without a storage backend, `needsRenewal()` always returns `true` because there is nowhere to check what you already have. Like a dog who has never seen a ball before in its life.
+
+```php
+->storage(new FilesystemStorage('/etc/coyotecert'))
+```
+
+Same path, every run. If you are using `DatabaseStorage`, confirm the connection points at the same database as last time and not your staging environment.
+
+---
+
+### Can I get a wildcard certificate?
+
+Yes, but DNS-01 only. RFC 8555 forbids wildcard validation over HTTP-01 or TLS-ALPN-01. That is not a CoyoteCert limitation -- it is a rule carved into the RFC the same way the ACME Corporation name was stamped into every box of defective rocket skates.
+
+```php
+->identifiers(['*.example.com', 'example.com'])
+->challenge(new CloudflareDns01Handler(...))
+```
+
+`*.example.com` covers `sub.example.com` but not the apex `example.com`, so include both if you need the root. And `*.*.example.com` is not a thing. The exception message will remind you of this.
+
+---
+
+### I'm getting `CaaException` but my CAA records look fine.
+
+The value compared against your CAA records is the CA's technical identifier, not its product name. ZeroSSL's CAA identifier is `sectigo.com` (or `comodoca.com`), not `zerossl.com`. Google Trust Services is `pki.goog`.
+
+Check the exact identifier for your CA in the [providers section](#certificate-authorities-1), update your CAA record, and the exception disappears. If you are certain the records are correct and just want to skip the pre-check entirely, `->skipCaaCheck()` exists.
+
+---
+
+### My DNS-01 propagation check times out, but I can see the TXT record in my DNS tool.
+
+Your DNS tool is probably querying a resolver. CoyoteCert queries the authoritative nameservers directly -- the same approach the ACME validator uses when it comes to check. If you are on split-horizon or internal DNS, the public authoritative servers may not have the record at all, and no amount of staring at your DNS dashboard will fix that.
+
+Three ways out:
+
+- `$handler->propagationTimeout(120)` to wait longer before giving up
+- `$handler->propagationDelay(15)` to add a fixed pause after the check passes
+- `$handler->skipPropagationCheck()` if you are confident the record will be there by the time the CA arrives
+
+---
+
+### How do I test without burning Let's Encrypt rate limits?
+
+`LetsEncryptStaging`. The certificates are not browser-trusted but the full ACME handshake is byte-for-byte identical to production. Hammer it as many times as you need.
+
+```php
+$coyote = CoyoteCert::provider(new LetsEncryptStaging())
+    // ... rest of your config
+```
+
+When everything looks good, swap to `LetsEncrypt` and issue once for real. Do not skip staging and go straight to production. Somebody does this every time, and they always end up filing a rate limit issue on GitHub.
+
+---
+
+### What if my account key is stolen?
+
+Revoke every certificate issued under it, then burn the key and start fresh.
+
+```php
+$coyote->revoke($storedCert, RevocationReason::KeyCompromise);
+```
+
+Delete the old account key files (`account-letsencrypt.pem` and equivalents for other CAs you use), re-run issuance, and CoyoteCert registers a new account automatically. The CA has no long memory for this sort of thing, which is more than can be said for most relationships.
+
+---
+
+### How do I migrate from certbot or acmephp?
+
+Point `FilesystemStorage` at a new directory and let CoyoteCert issue fresh certificates. Account formats are incompatible so there is no import path -- but there is no need for one either. New account, same domains, same webroot. Your existing certificates stay valid until they expire naturally.
+
+If you were using HTTP-01 with a certbot webroot, the `Http01Handler` webroot path is the exact same directory certbot was writing to. CoyoteCert will walk in and take over like it was always there.
+
+---
+
+### I run on multiple servers. Can they share an account?
+
+Yes. Use `DatabaseStorage` with a shared database, or `FilesystemStorage` on a shared volume with consistent paths. File locking is safe across concurrent processes, so two servers racing to `issueOrRenew()` at the same time will not corrupt anything. They will both end up holding the same certificate, which is the civilised outcome.
+
+```php
+->storage(new DatabaseStorage($sharedPdo))
+```
+
+One account key per CA, shared by however many servers you run.
+
+---
+
 ## Maintained by Blendbyte
 
 <br>

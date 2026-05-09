@@ -193,7 +193,7 @@ it('shows the RSA 4096 key type label', function () {
 // ── Filesystem edge cases ─────────────────────────────────────────────────────
 
 it('ignores cert files with an unrecognised key type in the filename', function () {
-    mkdir($this->dir, 0700, true);
+    mkdir($this->dir, 0o700, true);
     // A file that matches *.cert.json but has no valid key type in its name.
     file_put_contents($this->dir . '/example.com.cert.json', '{}');
 

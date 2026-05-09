@@ -391,6 +391,20 @@ The status line reflects time to expiry:
 | `Expiring soon` | Fewer than 7 days remaining |
 | `Expired` | Certificate has passed its expiry date |
 
+### `coyote certs`
+
+List all certificates in a storage directory, sorted by expiry date.
+
+```bash
+coyote certs --storage /etc/certs
+```
+
+| Option | Short | Default | Description |
+|---|---|---|---|
+| `--storage` | `-s` | `./certs` | Directory where certificates are stored |
+
+Each row shows the domain(s), key type, status, and expiry date. The status icons and colours match `coyote status`.
+
 ### Cron renewal
 
 ```bash
@@ -398,15 +412,53 @@ The status line reflects time to expiry:
 0 3 * * * sleep $((RANDOM % 3600)) && coyote issue --identifier example.com --webroot /var/www/html --storage /etc/certs --email admin@example.com
 ```
 
-The command is idempotent: it does nothing until fewer than `--days` (default 30) remain, so running it daily is safe. Randomizing the start time within the hour avoids stampeding the CA at the same minute as everyone else's cron job. Let's Encrypt explicitly requests this. Set it and forget it. Unlike certain Road Runner traps, this actually works unattended.
+The command is idempotent: it does nothing until fewer than `--days` (default 30) remain, so running it daily is safe. Randomizing the start time within the hour avoids stampeding the CA at the same minute as everyone else's cron job. Let's Encrypt explicitly requests this. Set it and forget it. Unlike certain Road Runner traps, this actually works unattended. There is no separate `coyote renew` command; `issue` handles both initial issuance and renewal.
+
+### `coyote revoke`
+
+Revoke a stored certificate. The `--provider` must be the same CA that issued the certificate, as the revocation request is signed with your stored ACME account key for that CA.
+
+```bash
+coyote revoke \
+  --identifier example.com \
+  --provider letsencrypt \
+  --storage /etc/certs
+```
+
+| Option | Short | Default | Description |
+|---|---|---|---|
+| `--identifier` | `-i` | | Primary identifier of the certificate to revoke |
+| `--provider` | `-p` | | CA the certificate was issued by. **Required** |
+| `--storage` | `-s` | `./certs` | Directory where certificates are stored |
+| `--key-type` | | `ec256` | Key type: `ec256`, `ec384`, `rsa2048`, `rsa4096` |
+| `--reason` | | `unspecified` | Revocation reason (see table below) |
+| `--zerossl-key` | | | ZeroSSL API key for EAB provisioning |
+| `--eab-kid` | | | EAB key ID |
+| `--eab-hmac` | | | EAB HMAC key |
+
+**Revocation reasons**
+
+| `--reason` value | Description |
+|---|---|
+| `unspecified` | No specific reason (default) |
+| `keycompromise` | Private key was compromised |
+| `cacompromise` | CA was compromised |
+| `affiliationchanged` | Domain ownership or affiliation changed |
+| `superseded` | Certificate was replaced by a new one |
+| `cessationofoperation` | Domain or service is no longer operated |
+| `certificatehold` | Temporary hold |
+| `privilegewithdrawn` | Privileges for the domain were withdrawn |
+| `aacompromise` | Attribute authority compromise |
 
 ### Help and version
 
 ```bash
-coyote --help         # list available commands
-coyote --version      # show version
-coyote issue --help   # full option reference for issue
-coyote status --help  # full option reference for status
+coyote --help               # list available commands
+coyote --version            # show version
+coyote issue --help         # full option reference for issue
+coyote status --help        # full option reference for status
+coyote certs --help         # full option reference for certs
+coyote revoke --help        # full option reference for revoke
 ```
 
 ---
@@ -863,7 +915,7 @@ class RedisStorage implements StorageInterface
 
 The provider slug is passed automatically by CoyoteCert on every account key operation, so multiple CAs never share the same account key. No extra wiring needed.
 
-Built-in providers return fixed slugs (`letsencrypt`, `zerossl`, etc.). `CustomProvider` derives its slug from the directory URL hostname (`acme.example.com` → `acme-example-com`). If you implement `AcmeProviderInterface` directly, `getSlug()` must return a string matching `[a-z0-9][a-z0-9-]*[a-z0-9]` — lowercase, no leading or trailing hyphens. Extending `AbstractProvider` gives you `assertValidSlug()` as a convenience guard.
+Built-in providers return fixed slugs (`letsencrypt`, `zerossl`, etc.). `CustomProvider` derives its slug from the directory URL hostname (`acme.example.com` → `acme-example-com`). If you implement `AcmeProviderInterface` directly, `getSlug()` must return a string matching `[a-z0-9][a-z0-9-]*[a-z0-9]`: lowercase, no leading or trailing hyphens. Extending `AbstractProvider` gives you `assertValidSlug()` as a convenience guard.
 
 ---
 

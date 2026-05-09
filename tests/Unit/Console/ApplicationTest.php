@@ -3,11 +3,13 @@
 use CoyoteCert\Console\Application;
 use Symfony\Component\Console\Tester\ApplicationTester;
 
-it('registers the issue and status commands', function () {
+it('registers the issue, status, certs, and revoke commands', function () {
     $app = new Application();
 
     expect($app->has('issue'))->toBeTrue();
     expect($app->has('status'))->toBeTrue();
+    expect($app->has('certs'))->toBeTrue();
+    expect($app->has('revoke'))->toBeTrue();
 });
 
 it('getLongVersion contains the app name, version, and repo URL', function () {
@@ -39,6 +41,8 @@ it('doRun shows the command list when --help is passed with no command', functio
 
     expect($output)->toContain('issue');
     expect($output)->toContain('status');
+    expect($output)->toContain('certs');
+    expect($output)->toContain('revoke');
 });
 
 it('doRun delegates --help to the named command when a command is given', function () {

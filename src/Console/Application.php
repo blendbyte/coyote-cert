@@ -4,6 +4,8 @@ namespace CoyoteCert\Console;
 
 use Composer\InstalledVersions;
 use CoyoteCert\Console\Command\IssueCommand;
+use CoyoteCert\Console\Command\ListCommand;
+use CoyoteCert\Console\Command\RevokeCommand;
 use CoyoteCert\Console\Command\StatusCommand;
 use Symfony\Component\Console\Application as BaseApplication;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -22,6 +24,8 @@ class Application extends BaseApplication
         $this->addCommands([
             new IssueCommand(),
             new StatusCommand(),
+            new ListCommand(),
+            new RevokeCommand(),
         ]);
     }
 

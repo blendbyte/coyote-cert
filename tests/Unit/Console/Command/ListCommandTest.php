@@ -190,6 +190,21 @@ it('shows the RSA 4096 key type label', function () {
     expect($this->buffer->fetch())->toContain('RSA 4096');
 });
 
+// ── Filesystem edge cases ─────────────────────────────────────────────────────
+
+it('ignores cert files with an unrecognised key type in the filename', function () {
+    mkdir($this->dir, 0700, true);
+    // A file that matches *.cert.json but has no valid key type in its name.
+    file_put_contents($this->dir . '/example.com.cert.json', '{}');
+
+    $this->tester->execute(['--storage' => $this->dir]);
+
+    $output = $this->buffer->fetch();
+
+    expect($this->tester->getStatusCode())->toBe(Command::SUCCESS);
+    expect($output)->toContain('No certificates found');
+});
+
 // ── Sorting ───────────────────────────────────────────────────────────────────
 
 it('sorts certificates by expiry date ascending', function () {

@@ -207,18 +207,41 @@ it('shows the provider display name in the output', function () {
     expect($output)->toContain("Let's Encrypt");
 });
 
-it('revokes a certificate with a non-default key type', function () {
-    $this->storage->saveCertificate('example.com', makeRevokeCert(keyType: KeyType::RSA_2048));
+it('accepts all valid key types', function (string $keyTypeStr, KeyType $keyType) {
+    $this->storage->saveCertificate('example.com', makeRevokeCert(keyType: $keyType));
 
-    [$code, $output] = runRevoke([
+    [$code] = runRevoke([
         '--identifier' => 'example.com',
         '--provider'   => 'letsencrypt',
         '--storage'    => $this->dir,
-        '--key-type'   => 'rsa2048',
+        '--key-type'   => $keyTypeStr,
     ]);
 
     expect($code)->toBe(Command::SUCCESS);
-    expect($output)->toContain('Certificate revoked');
+})->with([
+    ['ec256',   KeyType::EC_P256],
+    ['ec384',   KeyType::EC_P384],
+    ['rsa2048', KeyType::RSA_2048],
+    ['rsa4096', KeyType::RSA_4096],
+]);
+
+it('performRevoke delegates to CoyoteCert::revoke and surfaces the AcmeException', function () {
+    $this->storage->saveCertificate('example.com', makeRevokeCert());
+
+    $tester = new CommandTester(new RevokeCommand());
+    $tester->execute([
+        '--identifier' => 'example.com',
+        '--provider'   => 'letsencrypt',
+        '--storage'    => $this->dir,
+    ]);
+
+    $output = $this->buffer->fetch();
+
+    // The fake cert PEM triggers AcmeException('Could not parse the certificate.')
+    // inside Certificate::revoke() before any network call is made.
+    expect($tester->getStatusCode())->toBe(Command::FAILURE);
+    expect($output)->toContain('Revocation failed');
+    expect($output)->toContain('Could not parse the certificate');
 });
 
 // ── Exception handling ────────────────────────────────────────────────────────

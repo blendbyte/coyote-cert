@@ -7,6 +7,12 @@ use CoyoteCert\Exceptions\ChallengeException;
 class MockClouDnsHandler extends ClouDnsDns01Handler
 {
     protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function deleteExistingRecords(string $domain): void {}
+}
+
+class PurgingClouDnsHandler extends ClouDnsDns01Handler
+{
+    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
 }
 
 /**
@@ -15,7 +21,7 @@ class MockClouDnsHandler extends ClouDnsDns01Handler
  * @param list<array<string, mixed>|ChallengeException> $responses
  * @return array{JsonHttpClient&object, MockClouDnsHandler}
  */
-function clouDnsHandler(string $authId, string $authPassword, ?string $zone, array $responses): array
+function clouDnsHandler(string $authId, string $authPassword, ?string $zone, array $responses, bool $withPurge = false): array
 {
     $client = new class ($responses) extends JsonHttpClient {
         /** @var list<array{method: string, path: string, payload: mixed, queryParams: mixed}> */
@@ -54,7 +60,11 @@ function clouDnsHandler(string $authId, string $authPassword, ?string $zone, arr
         }
     };
 
-    return [$client, new MockClouDnsHandler($authId, $authPassword, $zone, $client)];
+    $handler = $withPurge
+        ? new PurgingClouDnsHandler($authId, $authPassword, $zone, $client)
+        : new MockClouDnsHandler($authId, $authPassword, $zone, $client);
+
+    return [$client, $handler];
 }
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -324,6 +334,38 @@ it('cleanup clears the stored record ID so a second call is a no-op', function (
     $handler->cleanup('example.com', '');  // second call: no extra request
 
     expect($client->captured)->toHaveCount(3);
+});
+
+// ── Stale record purge ────────────────────────────────────────────────────────
+
+it('deploy deletes existing _acme-challenge TXT records before creating a new one', function () {
+    [$client, $handler] = clouDnsHandler('id', 'pw', 'example.com', [
+        [['id' => 'stale-1', 'record' => 'oldvalue']],  // records.json listing
+        ['status' => 'Success'],                          // delete-record.json
+        clouDnsRecordCreated(),                           // add-record.json
+        [['id' => 'rec-new', 'record' => 'keyauth']],   // records.json (fetch ID)
+    ], withPurge: true);
+
+    $handler->deploy('example.com', '', 'keyauth');
+
+    expect($client->captured[0]['path'])->toBe('/dns/records.json');
+    expect($client->captured[0]['queryParams'])->toMatchArray(['host' => '_acme-challenge', 'type' => 'TXT']);
+    expect($client->captured[1]['path'])->toBe('/dns/delete-record.json');
+    expect($client->captured[1]['queryParams'])->toMatchArray(['record-id' => 'stale-1']);
+    expect($client->captured[2]['path'])->toBe('/dns/add-record.json');
+});
+
+it('deploy does nothing when no existing records are found', function () {
+    [$client, $handler] = clouDnsHandler('id', 'pw', 'example.com', [
+        [],                                             // empty list
+        clouDnsRecordCreated(),                         // add-record.json
+        [['id' => 'rec-new', 'record' => 'keyauth']], // records.json (fetch ID)
+    ], withPurge: true);
+
+    $handler->deploy('example.com', '', 'keyauth');
+
+    expect($client->captured[0]['path'])->toBe('/dns/records.json');
+    expect($client->captured[1]['path'])->toBe('/dns/add-record.json');
 });
 
 // ── Default client wiring ─────────────────────────────────────────────────────

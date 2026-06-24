@@ -43,6 +43,8 @@ class CloudflareDns01Handler extends AbstractDns01Handler
 
     public function deploy(string $domain, string $token, string $keyAuthorization): void
     {
+        $this->maybePurgeExisting($domain);
+
         $zoneId   = $this->resolveZoneId($domain);
         $response = $this->httpClient->request('POST', "/zones/{$zoneId}/dns_records", [
             'type'    => 'TXT',
@@ -70,6 +72,21 @@ class CloudflareDns01Handler extends AbstractDns01Handler
         $zoneId = $this->resolveZoneId($domain);
         $this->httpClient->request('DELETE', "/zones/{$zoneId}/dns_records/{$recordId}");
         unset($this->recordIds[$domain]);
+    }
+
+    protected function deleteExistingRecords(string $domain): void
+    {
+        $zoneId   = $this->resolveZoneId($domain);
+        $response = $this->httpClient->request('GET', "/zones/{$zoneId}/dns_records", queryParams: [
+            'type' => 'TXT',
+            'name' => $this->challengeName($domain),
+        ]);
+
+        foreach ($response['result'] ?? [] as $record) {
+            if (!empty($record['id'])) {
+                $this->httpClient->request('DELETE', "/zones/{$zoneId}/dns_records/{$record['id']}");
+            }
+        }
     }
 
     private function resolveZoneId(string $domain): string

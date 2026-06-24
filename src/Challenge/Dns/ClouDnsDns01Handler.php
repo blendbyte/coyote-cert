@@ -53,6 +53,8 @@ class ClouDnsDns01Handler extends AbstractDns01Handler
 
     public function deploy(string $domain, string $token, string $keyAuthorization): void
     {
+        $this->maybePurgeExisting($domain);
+
         $zone = $this->resolveZone($domain);
         $host = $this->relativeRecordName($domain, $zone);
 
@@ -112,6 +114,28 @@ class ClouDnsDns01Handler extends AbstractDns01Handler
             'record-id'   => $recordId,
         ]);
         unset($this->recordIds[$domain]);
+    }
+
+    protected function deleteExistingRecords(string $domain): void
+    {
+        $zone    = $this->resolveZone($domain);
+        $host    = $this->relativeRecordName($domain, $zone);
+        $records = $this->httpClient->request('GET', '/dns/records.json', queryParams: [
+            ...$this->auth(),
+            'domain-name' => $zone,
+            'host'        => $host,
+            'type'        => 'TXT',
+        ]);
+
+        foreach ($records as $record) {
+            if (is_array($record) && !empty($record['id'])) {
+                $this->httpClient->request('GET', '/dns/delete-record.json', queryParams: [
+                    ...$this->auth(),
+                    'domain-name' => $zone,
+                    'record-id'   => (string) $record['id'],
+                ]);
+            }
+        }
     }
 
     private function resolveZone(string $domain): string

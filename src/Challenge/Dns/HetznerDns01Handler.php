@@ -49,6 +49,8 @@ class HetznerDns01Handler extends AbstractDns01Handler
 
     public function deploy(string $domain, string $token, string $keyAuthorization): void
     {
+        $this->maybePurgeExisting($domain);
+
         $zone     = $this->resolveZone($domain);
         $response = $this->httpClient->request('POST', '/records', [
             'type'    => 'TXT',
@@ -76,6 +78,24 @@ class HetznerDns01Handler extends AbstractDns01Handler
 
         $this->httpClient->request('DELETE', '/records/' . $recordId);
         unset($this->recordIds[$domain]);
+    }
+
+    protected function deleteExistingRecords(string $domain): void
+    {
+        $zone     = $this->resolveZone($domain);
+        $name     = $this->relativeRecordName($domain, $zone['name']);
+        $response = $this->httpClient->request('GET', '/records', queryParams: ['zone_id' => $zone['id']]);
+
+        foreach ($response['records'] ?? [] as $record) {
+            if (
+                is_array($record)
+                && ($record['type'] ?? '') === 'TXT'
+                && ($record['name'] ?? '') === $name
+                && !empty($record['id'])
+            ) {
+                $this->httpClient->request('DELETE', '/records/' . $record['id']);
+            }
+        }
     }
 
     /**

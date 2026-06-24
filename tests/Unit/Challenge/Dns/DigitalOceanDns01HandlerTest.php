@@ -8,6 +8,12 @@ use CoyoteCert\Exceptions\HttpChallengeException;
 class MockDigitalOceanHandler extends DigitalOceanDns01Handler
 {
     protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function deleteExistingRecords(string $domain): void {}
+}
+
+class PurgingDigitalOceanHandler extends DigitalOceanDns01Handler
+{
+    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
 }
 
 /**
@@ -16,7 +22,7 @@ class MockDigitalOceanHandler extends DigitalOceanDns01Handler
  * @param list<array<string, mixed>|ChallengeException> $responses
  * @return array{JsonHttpClient&object, MockDigitalOceanHandler}
  */
-function doHandler(string $token, ?string $zone, array $responses): array
+function doHandler(string $token, ?string $zone, array $responses, bool $withPurge = false): array
 {
     $client = new class ($responses) extends JsonHttpClient {
         /** @var list<array{method: string, path: string, payload: mixed, queryParams: mixed}> */
@@ -55,7 +61,11 @@ function doHandler(string $token, ?string $zone, array $responses): array
         }
     };
 
-    return [$client, new MockDigitalOceanHandler($token, $zone, $client)];
+    $handler = $withPurge
+        ? new PurgingDigitalOceanHandler($token, $zone, $client)
+        : new MockDigitalOceanHandler($token, $zone, $client);
+
+    return [$client, $handler];
 }
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -254,6 +264,35 @@ it('cleanup clears the stored record ID so a second call is a no-op', function (
     $handler->cleanup('example.com', '');  // second call: no extra request
 
     expect($client->captured)->toHaveCount(2);
+});
+
+// ── Stale record purge ────────────────────────────────────────────────────────
+
+it('deploy deletes existing _acme-challenge TXT records before creating a new one', function () {
+    [$client, $handler] = doHandler('tok', 'example.com', [
+        ['domain_records' => [['id' => 999]]],  // list existing
+        [],                                      // delete 999
+        doRecordResponse(100),                   // create
+    ], withPurge: true);
+
+    $handler->deploy('example.com', '', 'keyauth');
+
+    expect($client->captured[0])->toMatchArray(['method' => 'GET', 'path' => '/domains/example.com/records']);
+    expect($client->captured[0]['queryParams'])->toMatchArray(['type' => 'TXT', 'name' => '_acme-challenge']);
+    expect($client->captured[1])->toMatchArray(['method' => 'DELETE', 'path' => '/domains/example.com/records/999']);
+    expect($client->captured[2]['method'])->toBe('POST');
+});
+
+it('deploy does nothing when no existing records are found', function () {
+    [$client, $handler] = doHandler('tok', 'example.com', [
+        ['domain_records' => []],  // empty list
+        doRecordResponse(100),     // create
+    ], withPurge: true);
+
+    $handler->deploy('example.com', '', 'keyauth');
+
+    expect($client->captured[0]['method'])->toBe('GET');
+    expect($client->captured[1]['method'])->toBe('POST');
 });
 
 // ── Default client wiring ─────────────────────────────────────────────────────

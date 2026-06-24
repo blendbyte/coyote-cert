@@ -53,6 +53,7 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
     private int              $propagationTimeout      = 60;
     private int              $propagationPollInterval = 5;
     private int              $propagationDelaySecs    = 0;
+    private bool             $purgeExistingOnDeploy   = true;
     private ?LoggerInterface $logger                  = null;
 
     final public function supports(AuthorizationChallengeEnum $type): bool
@@ -94,6 +95,23 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
     {
         $clone                       = clone $this;
         $clone->propagationDelaySecs = max(0, $seconds);
+
+        return $clone;
+    }
+
+    /**
+     * Disable the automatic deletion of existing _acme-challenge TXT records
+     * before deploying a new one.
+     *
+     * By default, deploy() removes any stale records left by a previous failed
+     * run so they cannot confuse the CA's validation. Call this to preserve them.
+     * Has no effect on providers that do not implement deleteExistingRecords()
+     * (e.g. ShellDns01Handler).
+     */
+    public function keepExistingRecords(): static
+    {
+        $clone                       = clone $this;
+        $clone->purgeExistingOnDeploy = false;
 
         return $clone;
     }
@@ -151,6 +169,23 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
         }
 
         return '_acme-challenge.' . substr($domain, 0, -(strlen($zoneName) + 1));
+    }
+
+    /**
+     * Delete any pre-existing _acme-challenge TXT records for $domain before
+     * deploying the new one. Override this in concrete handlers that support
+     * record enumeration via their provider API.
+     */
+    protected function deleteExistingRecords(string $domain): void {}
+
+    /**
+     * Call this at the start of deploy() to conditionally purge stale records.
+     */
+    final protected function maybePurgeExisting(string $domain): void
+    {
+        if ($this->purgeExistingOnDeploy) {
+            $this->deleteExistingRecords($domain);
+        }
     }
 
     /**

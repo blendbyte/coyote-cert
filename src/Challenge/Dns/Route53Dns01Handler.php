@@ -48,10 +48,12 @@ class Route53Dns01Handler extends AbstractDns01Handler
 
     public function deploy(string $domain, string $token, string $keyAuthorization): void
     {
+        $this->maybePurgeExisting($domain);
+
         $zoneId = $this->resolveZoneId($domain);
         $name   = '_acme-challenge.' . $domain . '.';
 
-        $this->changeRecord('CREATE', $zoneId, $name, $keyAuthorization);
+        $this->changeRecord('UPSERT', $zoneId, $name, $keyAuthorization);
 
         $this->pendingRecords[$domain] = [$zoneId, $name, $keyAuthorization];
         $this->awaitPropagation($domain, $keyAuthorization);

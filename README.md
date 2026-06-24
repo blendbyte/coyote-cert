@@ -651,14 +651,17 @@ class MyTlsAlpn01Handler extends TlsAlpn01Handler
 
 ## DNS-01 providers
 
-Six built-in DNS-01 handlers, all extending `AbstractDns01Handler`, which runs a post-deploy propagation check by default. Three fluent controls tune the behaviour:
+Six built-in DNS-01 handlers, all extending `AbstractDns01Handler`, which runs a post-deploy propagation check by default. Four fluent controls tune the behaviour:
 
 ```php
 // All return a new immutable instance.
 $handler->propagationTimeout(120)    // seconds to poll for the TXT record (default: 60)
 $handler->propagationDelay(10)       // fixed pause after the check, for slow secondaries (default: 0)
 $handler->skipPropagationCheck()     // skip polling entirely (split-horizon / internal DNS)
+$handler->keepExistingRecords()      // do not delete stale _acme-challenge records before deploying
 ```
+
+Before deploying a new `_acme-challenge` TXT record, each handler deletes any pre-existing records for that name. This prevents stale records from a previous failed run causing the CA to see multiple values and potentially refuse validation. Call `keepExistingRecords()` to disable this if you manage multiple certificates for the same domain simultaneously and need both records to coexist.
 
 Zone detection is automatic: the handler walks public-suffix candidates (`sub.example.com` → `example.com`) until it finds a match in the API. Supply an explicit zone to skip the detection call entirely.
 
@@ -1621,6 +1624,14 @@ Yes, but DNS-01 only. RFC 8555 forbids wildcard validation over HTTP-01 or TLS-A
 The value compared against your CAA records is the CA's technical identifier, not its product name. ZeroSSL's CAA identifier is `sectigo.com` (or `comodoca.com`), not `zerossl.com`. Google Trust Services is `pki.goog`.
 
 Check the exact identifier for your CA in the [providers section](#certificate-authorities-1), update your CAA record, and the exception disappears. If you are certain the records are correct and just want to skip the pre-check entirely, `->skipCaaCheck()` exists.
+
+---
+
+### Domain validation fails on retry even though the correct TXT record is visible.
+
+A previous failed run may have left a stale `_acme-challenge` TXT record alongside the new one. By default, each DNS-01 handler deletes any pre-existing records before deploying, so this is normally cleaned up automatically. If you are on an older version, or the cleanup was skipped because the process was killed mid-run, you can remove the stale record manually through your DNS provider's dashboard.
+
+If you need to keep existing records for a specific reason, use `->keepExistingRecords()` on the handler.
 
 ---
 

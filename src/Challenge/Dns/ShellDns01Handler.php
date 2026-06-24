@@ -32,6 +32,7 @@ class ShellDns01Handler extends AbstractDns01Handler
 
     public function deploy(string $domain, string $token, string $keyAuthorization): void
     {
+        $this->maybePurgeExisting($domain);
         $this->run($this->deployCommand, $domain, $keyAuthorization);
         $this->awaitPropagation($domain, $keyAuthorization);
     }

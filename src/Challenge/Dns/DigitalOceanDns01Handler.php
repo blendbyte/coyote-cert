@@ -45,6 +45,8 @@ class DigitalOceanDns01Handler extends AbstractDns01Handler
 
     public function deploy(string $domain, string $token, string $keyAuthorization): void
     {
+        $this->maybePurgeExisting($domain);
+
         $zone     = $this->resolveZone($domain);
         $response = $this->httpClient->request('POST', '/domains/' . $zone . '/records', [
             'type' => 'TXT',
@@ -72,6 +74,22 @@ class DigitalOceanDns01Handler extends AbstractDns01Handler
         $zone = $this->resolveZone($domain);
         $this->httpClient->request('DELETE', '/domains/' . $zone . '/records/' . $recordId);
         unset($this->recordIds[$domain]);
+    }
+
+    protected function deleteExistingRecords(string $domain): void
+    {
+        $zone     = $this->resolveZone($domain);
+        $name     = $this->relativeRecordName($domain, $zone);
+        $response = $this->httpClient->request('GET', '/domains/' . $zone . '/records', queryParams: [
+            'type' => 'TXT',
+            'name' => $name,
+        ]);
+
+        foreach ($response['domain_records'] ?? [] as $record) {
+            if (!empty($record['id'])) {
+                $this->httpClient->request('DELETE', '/domains/' . $zone . '/records/' . $record['id']);
+            }
+        }
     }
 
     private function resolveZone(string $domain): string

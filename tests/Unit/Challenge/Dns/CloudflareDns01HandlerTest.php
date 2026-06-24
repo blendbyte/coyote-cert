@@ -8,6 +8,12 @@ use CoyoteCert\Exceptions\ChallengeException;
 class MockCloudflareHandler extends CloudflareDns01Handler
 {
     protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function deleteExistingRecords(string $domain): void {}
+}
+
+class PurgingCloudflareHandler extends CloudflareDns01Handler
+{
+    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
 }
 
 /**
@@ -16,7 +22,7 @@ class MockCloudflareHandler extends CloudflareDns01Handler
  * @param list<array<string, mixed>|ChallengeException> $responses
  * @return array{JsonHttpClient&object, MockCloudflareHandler}
  */
-function cloudflareHandler(string $token, ?string $zoneId, array $responses): array
+function cloudflareHandler(string $token, ?string $zoneId, array $responses, bool $withPurge = false): array
 {
     $client = new class ($responses) extends JsonHttpClient {
         /** @var list<array{method: string, path: string, payload: mixed, queryParams: mixed}> */
@@ -55,7 +61,11 @@ function cloudflareHandler(string $token, ?string $zoneId, array $responses): ar
         }
     };
 
-    return [$client, new MockCloudflareHandler($token, $zoneId, $client)];
+    $handler = $withPurge
+        ? new PurgingCloudflareHandler($token, $zoneId, $client)
+        : new MockCloudflareHandler($token, $zoneId, $client);
+
+    return [$client, $handler];
 }
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -210,6 +220,49 @@ it('cleanup clears the stored record ID so a second call is a no-op', function (
     $handler->cleanup('example.com', '');  // second call: no extra request
 
     expect($client->captured)->toHaveCount(2);
+});
+
+// ── Stale record purge ────────────────────────────────────────────────────────
+
+it('deploy deletes existing _acme-challenge TXT records before creating a new one', function () {
+    [$client, $handler] = cloudflareHandler('tok', 'zone-abc', [
+        ['result' => [['id' => 'stale-1'], ['id' => 'stale-2']], 'success' => true], // list
+        deleteResponse(),  // delete stale-1
+        deleteResponse(),  // delete stale-2
+        recordResponse('rec-new'),  // create
+    ], withPurge: true);
+
+    $handler->deploy('example.com', '', 'keyauth');
+
+    expect($client->captured[0])->toMatchArray(['method' => 'GET', 'path' => '/zones/zone-abc/dns_records']);
+    expect($client->captured[0]['queryParams'])->toBe(['type' => 'TXT', 'name' => '_acme-challenge.example.com']);
+    expect($client->captured[1])->toMatchArray(['method' => 'DELETE', 'path' => '/zones/zone-abc/dns_records/stale-1']);
+    expect($client->captured[2])->toMatchArray(['method' => 'DELETE', 'path' => '/zones/zone-abc/dns_records/stale-2']);
+    expect($client->captured[3]['method'])->toBe('POST');
+});
+
+it('deploy skips purge when no existing records are found', function () {
+    [$client, $handler] = cloudflareHandler('tok', 'zone-abc', [
+        ['result' => [], 'success' => true],  // empty list
+        recordResponse('rec-new'),
+    ], withPurge: true);
+
+    $handler->deploy('example.com', '', 'keyauth');
+
+    expect($client->captured)->toHaveCount(2);
+    expect($client->captured[0]['method'])->toBe('GET');
+    expect($client->captured[1]['method'])->toBe('POST');
+});
+
+it('keepExistingRecords() disables the pre-deploy purge', function () {
+    [$client, $handler] = cloudflareHandler('tok', 'zone-abc', [
+        recordResponse('rec-new'),
+    ], withPurge: true);
+
+    $handler->keepExistingRecords()->deploy('example.com', '', 'keyauth');
+
+    expect($client->captured)->toHaveCount(1);
+    expect($client->captured[0]['method'])->toBe('POST');
 });
 
 // ── Default client wiring ─────────────────────────────────────────────────────

@@ -110,12 +110,12 @@ it('deploy POSTs to the correct rrset path for the zone', function () {
     expect($handler->captured[0]['path'])->toBe('/2013-04-01/hostedzone/ZTEST123/rrset');
 });
 
-it('deploy XML body contains the CREATE action', function () {
+it('deploy XML body contains the UPSERT action', function () {
     $handler = new TestableRoute53Handler('ZTEST123', [r53ChangeOkXml()]);
 
     $handler->deploy('example.com', '', 'keyauth');
 
-    expect($handler->captured[0]['body'])->toContain('<Action>CREATE</Action>');
+    expect($handler->captured[0]['body'])->toContain('<Action>UPSERT</Action>');
 });
 
 it('deploy XML body sets the record name as a FQDN with trailing dot', function () {

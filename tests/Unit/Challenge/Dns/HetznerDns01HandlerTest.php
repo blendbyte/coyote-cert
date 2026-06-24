@@ -7,6 +7,12 @@ use CoyoteCert\Exceptions\ChallengeException;
 class MockHetznerHandler extends HetznerDns01Handler
 {
     protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function deleteExistingRecords(string $domain): void {}
+}
+
+class PurgingHetznerHandler extends HetznerDns01Handler
+{
+    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
 }
 
 /**
@@ -15,7 +21,7 @@ class MockHetznerHandler extends HetznerDns01Handler
  * @param list<array<string, mixed>|ChallengeException> $responses
  * @return array{JsonHttpClient&object, MockHetznerHandler}
  */
-function hetznerHandler(string $token, ?string $zoneId, array $responses): array
+function hetznerHandler(string $token, ?string $zoneId, array $responses, bool $withPurge = false): array
 {
     $client = new class ($responses) extends JsonHttpClient {
         /** @var list<array{method: string, path: string, payload: mixed, queryParams: mixed}> */
@@ -54,7 +60,11 @@ function hetznerHandler(string $token, ?string $zoneId, array $responses): array
         }
     };
 
-    return [$client, new MockHetznerHandler($token, $zoneId, $client)];
+    $handler = $withPurge
+        ? new PurgingHetznerHandler($token, $zoneId, $client)
+        : new MockHetznerHandler($token, $zoneId, $client);
+
+    return [$client, $handler];
 }
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -284,6 +294,39 @@ it('cleanup clears the stored record ID so a second call is a no-op', function (
     $handler->cleanup('example.com', '');  // second call: no extra request
 
     expect($client->captured)->toHaveCount(3);
+});
+
+// ── Stale record purge ────────────────────────────────────────────────────────
+
+it('deploy deletes existing _acme-challenge TXT records before creating a new one', function () {
+    [$client, $handler] = hetznerHandler('tok', 'zone-abc', [
+        hetznerZoneDetailsResponse('zone-abc', 'example.com'),  // resolveZone in purge
+        ['records' => [
+            ['id' => 'stale-1', 'type' => 'TXT', 'name' => '_acme-challenge'],
+            ['id' => 'other-1', 'type' => 'A',   'name' => '_acme-challenge'],  // wrong type, skipped
+        ]],
+        [],                                   // DELETE stale-1
+        hetznerRecordResponse('rec-new'),     // create
+    ], withPurge: true);
+
+    $handler->deploy('example.com', '', 'keyauth');
+
+    expect($client->captured[1])->toMatchArray(['method' => 'GET', 'path' => '/records']);
+    expect($client->captured[2])->toMatchArray(['method' => 'DELETE', 'path' => '/records/stale-1']);
+    expect($client->captured[3]['method'])->toBe('POST');
+});
+
+it('deploy does nothing when no existing records are found', function () {
+    [$client, $handler] = hetznerHandler('tok', 'zone-abc', [
+        hetznerZoneDetailsResponse('zone-abc', 'example.com'),
+        ['records' => []],
+        hetznerRecordResponse('rec-new'),
+    ], withPurge: true);
+
+    $handler->deploy('example.com', '', 'keyauth');
+
+    expect($client->captured[1])->toMatchArray(['method' => 'GET', 'path' => '/records']);
+    expect($client->captured[2]['method'])->toBe('POST');
 });
 
 // ── Default client wiring ─────────────────────────────────────────────────────

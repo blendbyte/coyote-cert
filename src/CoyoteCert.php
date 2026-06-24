@@ -364,6 +364,7 @@ class CoyoteCert
         $certKeyPem = OpenSsl::openSslKeyToString($certKey);
         $csr        = OpenSsl::generateCsr($this->domains, $certKey);
 
+        $api->logger('info', 'Submitting CSR and finalizing order.');
         $api->order()->finalize($order, $csr);
 
         $order  = $api->order()->waitUntilValid($order);
@@ -373,6 +374,8 @@ class CoyoteCert
         $expiresAt = isset($parsed['validTo_time_t'])
             ? (new DateTimeImmutable())->setTimestamp((int) $parsed['validTo_time_t'])
             : new DateTimeImmutable('+90 days');
+
+        $api->logger('info', sprintf('Certificate issued, expires %s.', $expiresAt->format('Y-m-d')));
 
         $stored = new StoredCertificate(
             certificate: $bundle->certificate,
@@ -388,6 +391,7 @@ class CoyoteCert
 
         if ($this->storage !== null) {
             $this->storage->saveCertificate($this->domains[0], $stored);
+            $api->logger('info', 'Certificate saved to storage.');
         }
 
         return $stored;

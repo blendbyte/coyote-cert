@@ -56,6 +56,9 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
     private bool             $purgeExistingOnDeploy   = true;
     private ?LoggerInterface $logger                  = null;
 
+    /** @var array<string, true> Tracks domains already purged this handler instance to avoid wiping sibling challenges (e.g. wildcard + base). */
+    private array $purgeDone = [];
+
     final public function supports(AuthorizationChallengeEnum $type): bool
     {
         return $type === AuthorizationChallengeEnum::DNS;
@@ -180,11 +183,16 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
 
     /**
      * Call this at the start of deploy() to conditionally purge stale records.
+     *
+     * Purges at most once per domain per handler instance. This prevents the
+     * second deploy() call for the same domain (e.g. wildcard + base both
+     * requiring _acme-challenge.example.com) from wiping the first challenge.
      */
     final protected function maybePurgeExisting(string $domain): void
     {
-        if ($this->purgeExistingOnDeploy) {
+        if ($this->purgeExistingOnDeploy && !isset($this->purgeDone[$domain])) {
             $this->deleteExistingRecords($domain);
+            $this->purgeDone[$domain] = true;
         }
     }
 

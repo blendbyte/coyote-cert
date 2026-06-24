@@ -254,6 +254,23 @@ it('deploy skips purge when no existing records are found', function () {
     expect($client->captured[1]['method'])->toBe('POST');
 });
 
+it('second deploy() for the same domain (wildcard + base) skips purge to preserve the first challenge', function () {
+    [$client, $handler] = cloudflareHandler('tok', 'zone-abc', [
+        ['result' => [['id' => 'stale-1']], 'success' => true],  // list (first deploy only)
+        deleteResponse(),                                          // delete stale-1
+        recordResponse('rec-base'),                               // create base challenge
+        recordResponse('rec-wildcard'),                           // create wildcard challenge (no list/delete)
+    ], withPurge: true);
+
+    $handler->deploy('example.com', '', 'keyauth-base');
+    $handler->deploy('example.com', '', 'keyauth-wildcard');
+
+    $methods = array_column($client->captured, 'method');
+    expect(array_count_values($methods)['GET'])->toBe(1);   // only one list call
+    expect(array_count_values($methods)['DELETE'])->toBe(1); // only one delete call
+    expect(array_count_values($methods)['POST'])->toBe(2);   // two creates
+});
+
 it('keepExistingRecords() disables the pre-deploy purge', function () {
     [$client, $handler] = cloudflareHandler('tok', 'zone-abc', [
         recordResponse('rec-new'),

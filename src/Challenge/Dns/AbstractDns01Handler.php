@@ -110,7 +110,7 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
      */
     public function keepExistingRecords(): static
     {
-        $clone                       = clone $this;
+        $clone                        = clone $this;
         $clone->purgeExistingOnDeploy = false;
 
         return $clone;

@@ -47,4 +47,25 @@ class DomainValidationException extends AcmeException
             $foundStr,
         ));
     }
+
+    /**
+     * @param array<int, array{domainValidationType: string, error: array<string, mixed>}> $errors
+     */
+    public static function challengeInvalid(string $domain, array $errors): self
+    {
+        $details = array_map(
+            static fn(array $e) => sprintf(
+                '%s: %s',
+                $e['domainValidationType'] ?? '?',
+                $e['error']['detail'] ?? $e['error']['type'] ?? 'no detail provided',
+            ),
+            $errors,
+        );
+
+        return new self(sprintf(
+            'The CA marked the authorization for %s as invalid.%s',
+            $domain,
+            empty($details) ? '' : ' ' . implode(' ', $details),
+        ), $errors);
+    }
 }

@@ -344,11 +344,14 @@ class CoyoteCert
             $api->domainValidation()->start($account, $domainValidation, $challengeType, $this->localTest);
         }
 
-        $allPassed = $api->domainValidation()->allChallengesPassed($order, $this->pollAttempts);
-
-        foreach ($validationData as $item) {
-            [$token] = $this->extractTokenAndKeyAuth($item);
-            $challengeHandler->cleanup($item->identifier, $token);
+        try {
+            $allPassed = $api->domainValidation()->allChallengesPassed($order, $this->pollAttempts);
+        } finally {
+            // Always clean up deployed records, even when the CA rejects a challenge outright.
+            foreach ($validationData as $item) {
+                [$token] = $this->extractTokenAndKeyAuth($item);
+                $challengeHandler->cleanup($item->identifier, $token);
+            }
         }
 
         if (!$allPassed) {

@@ -154,6 +154,7 @@ class DomainValidation extends Endpoint
         return $response;
     }
 
+    /** @throws \CoyoteCert\Exceptions\DomainValidationException immediately when the CA marks a challenge invalid — that status is terminal, so it's not worth burning the retry budget on. */
     public function allChallengesPassed(OrderData $orderData, int $maxAttempts = 10): bool
     {
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
@@ -171,7 +172,10 @@ class DomainValidation extends Endpoint
         return false;
     }
 
-    /** @param DomainValidationData[] $domainValidation */
+    /**
+     * @param DomainValidationData[] $domainValidation
+     * @throws \CoyoteCert\Exceptions\DomainValidationException
+     */
     private function challengeSucceeded(array $domainValidation): bool
     {
         foreach ($domainValidation as $status) {
@@ -179,6 +183,19 @@ class DomainValidation extends Endpoint
                 'info',
                 "Check {$status->identifier['type']} challenge of {$status->identifier['value']}.",
             );
+
+            if ($status->isInvalid()) {
+                foreach ($status->getErrors() as $error) {
+                    $this->client->logger('error', sprintf(
+                        'Challenge for %s failed: %s (%s)',
+                        $status->identifier['value'],
+                        $error['error']['detail'] ?? 'no detail provided',
+                        $error['error']['type'] ?? 'unknown error type',
+                    ));
+                }
+
+                throw DomainValidationException::challengeInvalid($status->identifier['value'], $status->getErrors());
+            }
 
             if (!$status->isValid() && $status->identifier['type'] === 'dns') {
                 foreach (LocalChallengeTest::lookupTxt($status->identifier['value']) as $result) {

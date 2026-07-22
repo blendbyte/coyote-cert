@@ -49,7 +49,7 @@ class DomainValidationException extends AcmeException
     }
 
     /**
-     * @param array<int, array{domainValidationType: string, error: array<string, mixed>}> $errors
+     * @param array<int, array<string, mixed>> $errors
      */
     public static function challengeInvalid(string $domain, array $errors): self
     {
@@ -57,7 +57,7 @@ class DomainValidationException extends AcmeException
             static fn(array $e) => sprintf(
                 '%s: %s',
                 $e['domainValidationType'] ?? '?',
-                $e['error']['detail'] ?? $e['error']['type'] ?? 'no detail provided',
+                $e['error']['detail']      ?? $e['error']['type'] ?? 'no detail provided',
             ),
             $errors,
         );

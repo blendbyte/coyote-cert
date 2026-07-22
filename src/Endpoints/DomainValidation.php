@@ -190,7 +190,7 @@ class DomainValidation extends Endpoint
                         'Challenge for %s failed: %s (%s)',
                         $status->identifier['value'],
                         $error['error']['detail'] ?? 'no detail provided',
-                        $error['error']['type'] ?? 'unknown error type',
+                        $error['error']['type']   ?? 'unknown error type',
                     ));
                 }
 

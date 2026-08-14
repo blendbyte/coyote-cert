@@ -282,6 +282,25 @@ it('cleanup is a no-op when deploy was never called for the domain', function ()
     expect($client->captured)->toBeEmpty();
 });
 
+it('cleanup deletes every record deployed for the same domain (wildcard + base)', function () {
+    [$client, $handler] = hetznerHandler('tok', 'zone-abc', [
+        hetznerZoneDetailsResponse('zone-abc', 'example.com'),
+        hetznerRecordResponse('rec-base'),
+        hetznerRecordResponse('rec-wildcard'),
+        [],
+        [],
+    ]);
+
+    $handler->deploy('example.com', '', 'keyauth-base');
+    $handler->deploy('example.com', '', 'keyauth-wildcard');
+    $handler->cleanup('example.com', '');
+    $handler->cleanup('example.com', '');  // second identifier: already cleaned
+
+    expect($client->captured)->toHaveCount(5);
+    expect($client->captured[3])->toMatchArray(['method' => 'DELETE', 'path' => '/records/rec-base']);
+    expect($client->captured[4])->toMatchArray(['method' => 'DELETE', 'path' => '/records/rec-wildcard']);
+});
+
 it('cleanup clears the stored record ID so a second call is a no-op', function () {
     [$client, $handler] = hetznerHandler('tok', 'zone-abc', [
         hetznerZoneDetailsResponse('zone-abc', 'example.com'),

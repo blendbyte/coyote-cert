@@ -29,7 +29,12 @@ class Route53Dns01Handler extends AbstractDns01Handler
     private const API_VERSION = '2013-04-01';
 
     /**
-     * @var array<string, array{0: string, 1: string, 2: string}> domain => [zoneId, recordName, value]
+     * Records deployed by deploy(), consumed by cleanup().
+     *
+     * The values are a list: a wildcard and its base name share one identifier
+     * and therefore need two TXT values in the same _acme-challenge RRset.
+     *
+     * @var array<string, array{zoneId: string, name: string, values: list<string>}> domain => rrset
      */
     private array $pendingRecords = [];
 
@@ -52,10 +57,16 @@ class Route53Dns01Handler extends AbstractDns01Handler
 
         $zoneId = $this->resolveZoneId($domain);
         $name   = '_acme-challenge.' . $domain . '.';
+        $values = $this->pendingRecords[$domain]['values'] ?? [];
 
-        $this->changeRecord('UPSERT', $zoneId, $name, $keyAuthorization);
+        if (!in_array($keyAuthorization, $values, true)) {
+            $values[] = $keyAuthorization;
+        }
 
-        $this->pendingRecords[$domain] = [$zoneId, $name, $keyAuthorization];
+        // UPSERT replaces the whole RRset, so resend every value deployed for this name.
+        $this->changeRecord('UPSERT', $zoneId, $name, $values);
+
+        $this->pendingRecords[$domain] = ['zoneId' => $zoneId, 'name' => $name, 'values' => $values];
         $this->awaitPropagation($domain, $keyAuthorization);
     }
 
@@ -65,15 +76,18 @@ class Route53Dns01Handler extends AbstractDns01Handler
             return;
         }
 
-        [$zoneId, $name, $value] = $this->pendingRecords[$domain];
-        $this->changeRecord('DELETE', $zoneId, $name, $value);
+        ['zoneId' => $zoneId, 'name' => $name, 'values' => $values] = $this->pendingRecords[$domain];
+        $this->changeRecord('DELETE', $zoneId, $name, $values);
         unset($this->pendingRecords[$domain]);
     }
 
-    private function changeRecord(string $action, string $zoneId, string $name, string $value): void
+    /**
+     * @param list<string> $values
+     */
+    private function changeRecord(string $action, string $zoneId, string $name, array $values): void
     {
         $path = sprintf('/%s/hostedzone/%s/rrset', self::API_VERSION, $zoneId);
-        $this->send('POST', $path, '', $this->buildChangeBatch($action, $name, $value));
+        $this->send('POST', $path, '', $this->buildChangeBatch($action, $name, $values));
     }
 
     private function resolveZoneId(string $domain): string
@@ -122,10 +136,19 @@ class Route53Dns01Handler extends AbstractDns01Handler
         return $zones;
     }
 
-    private function buildChangeBatch(string $action, string $name, string $value): string
+    /**
+     * @param list<string> $values
+     */
+    private function buildChangeBatch(string $action, string $name, array $values): string
     {
-        $escapedName  = htmlspecialchars($name, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-        $escapedValue = htmlspecialchars('"' . $value . '"', ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        $escapedName = htmlspecialchars($name, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        $records     = implode('', array_map(
+            fn(string $value): string => sprintf(
+                '<ResourceRecord><Value>%s</Value></ResourceRecord>',
+                htmlspecialchars('"' . $value . '"', ENT_XML1 | ENT_QUOTES, 'UTF-8'),
+            ),
+            $values,
+        ));
 
         return sprintf(
             '<?xml version="1.0" encoding="UTF-8"?>'
@@ -133,14 +156,14 @@ class Route53Dns01Handler extends AbstractDns01Handler
             . '<ChangeBatch><Changes><Change>'
             . '<Action>%s</Action>'
             . '<ResourceRecordSet><Name>%s</Name><Type>TXT</Type><TTL>60</TTL>'
-            . '<ResourceRecords><ResourceRecord><Value>%s</Value></ResourceRecord></ResourceRecords>'
+            . '<ResourceRecords>%s</ResourceRecords>'
             . '</ResourceRecordSet>'
             . '</Change></Changes></ChangeBatch>'
             . '</ChangeResourceRecordSetsRequest>',
             self::API_VERSION,
             $action,
             $escapedName,
-            $escapedValue,
+            $records,
         );
     }
 

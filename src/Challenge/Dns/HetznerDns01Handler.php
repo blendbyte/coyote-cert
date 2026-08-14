@@ -23,7 +23,14 @@ use CoyoteCert\Exceptions\ChallengeException;
  */
 class HetznerDns01Handler extends AbstractDns01Handler
 {
-    /** @var array<string, string> domain => record_id, populated by deploy(), consumed by cleanup() */
+    /**
+     * Record IDs created by deploy(), consumed by cleanup().
+     *
+     * A list per domain: a wildcard and its base name share one identifier and
+     * therefore produce two TXT records under the same _acme-challenge name.
+     *
+     * @var array<string, list<string>> domain => record_ids
+     */
     private array $recordIds = [];
 
     /**
@@ -64,19 +71,22 @@ class HetznerDns01Handler extends AbstractDns01Handler
             throw new ChallengeException('Hetzner did not return a record ID after creating the TXT record.');
         }
 
-        $this->recordIds[$domain] = $response['record']['id'];
+        $this->recordIds[$domain][] = $response['record']['id'];
         $this->awaitPropagation($domain, $keyAuthorization);
     }
 
     public function cleanup(string $domain, string $token): void
     {
-        $recordId = $this->recordIds[$domain] ?? null;
+        $recordIds = $this->recordIds[$domain] ?? [];
 
-        if ($recordId === null) {
+        if ($recordIds === []) {
             return;
         }
 
-        $this->httpClient->request('DELETE', '/records/' . $recordId);
+        foreach ($recordIds as $recordId) {
+            $this->httpClient->request('DELETE', '/records/' . $recordId);
+        }
+
         unset($this->recordIds[$domain]);
     }
 

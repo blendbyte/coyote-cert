@@ -253,6 +253,24 @@ it('cleanup is a no-op when deploy was never called for the domain', function ()
     expect($client->captured)->toBeEmpty();
 });
 
+it('cleanup deletes every record deployed for the same domain (wildcard + base)', function () {
+    [$client, $handler] = doHandler('tok', 'example.com', [
+        doRecordResponse(11),
+        doRecordResponse(22),
+        [],
+        [],
+    ]);
+
+    $handler->deploy('example.com', '', 'keyauth-base');
+    $handler->deploy('example.com', '', 'keyauth-wildcard');
+    $handler->cleanup('example.com', '');
+    $handler->cleanup('example.com', '');  // second identifier: already cleaned
+
+    expect($client->captured)->toHaveCount(4);
+    expect($client->captured[2])->toMatchArray(['method' => 'DELETE', 'path' => '/domains/example.com/records/11']);
+    expect($client->captured[3])->toMatchArray(['method' => 'DELETE', 'path' => '/domains/example.com/records/22']);
+});
+
 it('cleanup clears the stored record ID so a second call is a no-op', function () {
     [$client, $handler] = doHandler('tok', 'example.com', [
         doRecordResponse(1),

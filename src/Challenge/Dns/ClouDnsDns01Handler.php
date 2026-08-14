@@ -31,7 +31,14 @@ use CoyoteCert\Exceptions\ChallengeException;
  */
 class ClouDnsDns01Handler extends AbstractDns01Handler
 {
-    /** @var array<string, string> domain => record_id, populated by deploy(), consumed by cleanup() */
+    /**
+     * Record IDs created by deploy(), consumed by cleanup().
+     *
+     * A list per domain: a wildcard and its base name share one identifier and
+     * therefore produce two TXT records under the same _acme-challenge name.
+     *
+     * @var array<string, list<string>> domain => record_ids
+     */
     private array $recordIds = [];
 
     /** @var array<string, true> zone_name => true, caches confirmed zones */
@@ -95,24 +102,28 @@ class ClouDnsDns01Handler extends AbstractDns01Handler
             throw new ChallengeException('ClouDNS: could not locate the TXT record after creation.');
         }
 
-        $this->recordIds[$domain] = $recordId;
+        $this->recordIds[$domain][] = $recordId;
         $this->awaitPropagation($domain, $keyAuthorization);
     }
 
     public function cleanup(string $domain, string $token): void
     {
-        $recordId = $this->recordIds[$domain] ?? null;
+        $recordIds = $this->recordIds[$domain] ?? [];
 
-        if ($recordId === null) {
+        if ($recordIds === []) {
             return;
         }
 
         $zone = $this->resolveZone($domain);
-        $this->httpClient->request('GET', '/dns/delete-record.json', queryParams: [
-            ...$this->auth(),
-            'domain-name' => $zone,
-            'record-id'   => $recordId,
-        ]);
+
+        foreach ($recordIds as $recordId) {
+            $this->httpClient->request('GET', '/dns/delete-record.json', queryParams: [
+                ...$this->auth(),
+                'domain-name' => $zone,
+                'record-id'   => $recordId,
+            ]);
+        }
+
         unset($this->recordIds[$domain]);
     }
 

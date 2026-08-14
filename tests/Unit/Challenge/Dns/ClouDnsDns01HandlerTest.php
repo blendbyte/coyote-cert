@@ -322,6 +322,26 @@ it('cleanup is a no-op when deploy was never called for the domain', function ()
     expect($client->captured)->toBeEmpty();
 });
 
+it('cleanup deletes every record deployed for the same domain (wildcard + base)', function () {
+    [$client, $handler] = clouDnsHandler('id', 'pw', 'example.com', [
+        clouDnsRecordCreated(),
+        clouDnsRecordsList(11, 'keyauth-base'),
+        clouDnsRecordCreated(),
+        clouDnsRecordsList(22, 'keyauth-wildcard'),
+        clouDnsDeleted(),
+        clouDnsDeleted(),
+    ]);
+
+    $handler->deploy('example.com', '', 'keyauth-base');
+    $handler->deploy('example.com', '', 'keyauth-wildcard');
+    $handler->cleanup('example.com', '');
+    $handler->cleanup('example.com', '');  // second identifier: already cleaned
+
+    expect($client->captured)->toHaveCount(6);
+    expect($client->captured[4]['queryParams']['record-id'])->toBe('11');
+    expect($client->captured[5]['queryParams']['record-id'])->toBe('22');
+});
+
 it('cleanup clears the stored record ID so a second call is a no-op', function () {
     [$client, $handler] = clouDnsHandler('id', 'pw', 'example.com', [
         clouDnsRecordCreated(),

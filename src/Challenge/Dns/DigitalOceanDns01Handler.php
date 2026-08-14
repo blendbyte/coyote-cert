@@ -23,7 +23,14 @@ use CoyoteCert\Exceptions\HttpChallengeException;
  */
 class DigitalOceanDns01Handler extends AbstractDns01Handler
 {
-    /** @var array<string, string> domain => record_id, populated by deploy(), consumed by cleanup() */
+    /**
+     * Record IDs created by deploy(), consumed by cleanup().
+     *
+     * A list per domain: a wildcard and its base name share one identifier and
+     * therefore produce two TXT records under the same _acme-challenge name.
+     *
+     * @var array<string, list<string>> domain => record_ids
+     */
     private array $recordIds = [];
 
     /** @var array<string, true> zone_name => true, caches confirmed zones */
@@ -59,20 +66,24 @@ class DigitalOceanDns01Handler extends AbstractDns01Handler
             throw new ChallengeException('DigitalOcean did not return a record ID after creating the TXT record.');
         }
 
-        $this->recordIds[$domain] = (string) $response['domain_record']['id'];
+        $this->recordIds[$domain][] = (string) $response['domain_record']['id'];
         $this->awaitPropagation($domain, $keyAuthorization);
     }
 
     public function cleanup(string $domain, string $token): void
     {
-        $recordId = $this->recordIds[$domain] ?? null;
+        $recordIds = $this->recordIds[$domain] ?? [];
 
-        if ($recordId === null) {
+        if ($recordIds === []) {
             return;
         }
 
         $zone = $this->resolveZone($domain);
-        $this->httpClient->request('DELETE', '/domains/' . $zone . '/records/' . $recordId);
+
+        foreach ($recordIds as $recordId) {
+            $this->httpClient->request('DELETE', '/domains/' . $zone . '/records/' . $recordId);
+        }
+
         unset($this->recordIds[$domain]);
     }
 

@@ -295,6 +295,37 @@ it('cleanup is a no-op when deploy was never called for the domain', function ()
     expect($handler->captured)->toBeEmpty();
 });
 
+it('second deploy for the same domain UPSERTs both values into one RRset', function () {
+    $handler = new TestableRoute53Handler('ZCLEAN', [
+        r53ChangeOkXml(), // base
+        r53ChangeOkXml(), // wildcard
+    ]);
+
+    $handler->deploy('example.com', '', 'keyauth-base');
+    $handler->deploy('example.com', '', 'keyauth-wildcard');
+
+    expect($handler->captured[1]['body'])->toContain('<Value>&quot;keyauth-base&quot;</Value>');
+    expect($handler->captured[1]['body'])->toContain('<Value>&quot;keyauth-wildcard&quot;</Value>');
+});
+
+it('cleanup DELETEs the RRset with every value deployed for the domain', function () {
+    $handler = new TestableRoute53Handler('ZCLEAN', [
+        r53ChangeOkXml(), // base
+        r53ChangeOkXml(), // wildcard
+        r53ChangeOkXml(), // cleanup
+    ]);
+
+    $handler->deploy('example.com', '', 'keyauth-base');
+    $handler->deploy('example.com', '', 'keyauth-wildcard');
+    $handler->cleanup('example.com', '');
+    $handler->cleanup('example.com', '');  // second identifier: already cleaned
+
+    expect($handler->captured)->toHaveCount(3);
+    expect($handler->captured[2]['body'])->toContain('<Action>DELETE</Action>');
+    expect($handler->captured[2]['body'])->toContain('<Value>&quot;keyauth-base&quot;</Value>');
+    expect($handler->captured[2]['body'])->toContain('<Value>&quot;keyauth-wildcard&quot;</Value>');
+});
+
 it('cleanup clears the pending record so a second call is a no-op', function () {
     $handler = new TestableRoute53Handler('ZCLEAN', [
         r53ChangeOkXml(), // deploy

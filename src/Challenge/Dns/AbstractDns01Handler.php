@@ -54,7 +54,7 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
     private bool             $propagationCheck        = true;
     private int              $propagationTimeout      = 60;
     private int              $propagationPollInterval = 5;
-    private int              $propagationDelaySecs    = 30;
+    private int              $propagationDelaySecs    = 60;
     private bool             $purgeExistingOnDeploy   = true;
     private ?LoggerInterface $logger                  = null;
 
@@ -101,12 +101,13 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
     /**
      * Set the settle delay applied once the records are confirmed on the
      * authoritative nameservers (or instead of the check when it is disabled).
-     * Defaults to 30 seconds.
+     * Defaults to 60 seconds.
      *
      * Authoritative visibility is not resolver visibility: the CA validates
      * through caching recursors and anycast secondaries that may still hold the
      * pre-update answer for up to the record TTL. Waiting here lets those
-     * expire. Pass 0 to disable.
+     * expire, so the delay should be at least the TTL of the _acme-challenge
+     * record. Pass 0 to disable.
      */
     public function propagationDelay(int $seconds): static
     {
@@ -311,17 +312,20 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
     {
         if ($this->logger !== null) {
             $allVisible = true;
+            $highestTtl = 0;
 
             foreach ($this->lookupTxt($domain) as $result) {
-                $missing = array_diff($keyAuthorizations, $result['found']);
+                $missing    = array_diff($keyAuthorizations, $result['found']);
+                $highestTtl = max($highestTtl, $result['ttl']);
                 $this->logger->debug(sprintf(
-                    'DNS propagation check: %s (%s) → _acme-challenge.%s TXT = %s%s',
+                    'DNS propagation check: %s (%s) → _acme-challenge.%s TXT = %s%s%s',
                     $result['ns'],
                     $result['ip'],
                     $domain,
                     empty($result['found'])
                         ? '(none)'
                         : implode(', ', array_map(fn($v) => '"' . $v . '"', $result['found'])),
+                    $result['ttl'] > 0 ? sprintf(' (ttl %ds)', $result['ttl']) : '',
                     $missing === []
                         ? ''
                         : sprintf(' (missing %d of %d)', count($missing), count($keyAuthorizations)),
@@ -338,6 +342,7 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
                     count($keyAuthorizations),
                     $domain,
                 ));
+                $this->warnOnLongTtl($domain, $highestTtl);
             }
 
             return $allVisible;
@@ -355,13 +360,38 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
     }
 
     /**
+     * Warn when the challenge record outlives the settle delay.
+     *
+     * The CA validates through caching resolvers, and its remote perspectives
+     * reuse those caches. A resolver that read the record during an earlier
+     * issuance keeps serving that value for the TTL, so re-issuing the same
+     * name inside that window is rejected with "Incorrect TXT record ... found"
+     * no matter how cleanly the new value propagated.
+     */
+    private function warnOnLongTtl(string $domain, int $ttl): void
+    {
+        if ($this->logger === null || $ttl <= $this->propagationDelaySecs) {
+            return;
+        }
+
+        $this->logger->warning(sprintf(
+            '_acme-challenge.%s is served with a TTL of %ds, longer than the %ds settle delay. '
+            . 'Resolvers in front of the CA can still be serving the previous value, which fails '
+            . 'validation. Lower the TTL on the challenge record or raise propagationDelay().',
+            $domain,
+            $ttl,
+            $this->propagationDelaySecs,
+        ));
+    }
+
+    /**
      * Read the _acme-challenge TXT values currently served by each of the
      * domain's authoritative nameservers.
      *
      * Marked protected so tests can subclass and return canned results
      * without making real DNS queries.
      *
-     * @return array<array{ns: string, ip: string, found: string[]}>
+     * @return array<array{ns: string, ip: string, found: string[], ttl: int}>
      */
     protected function lookupTxt(string $domain): array
     {

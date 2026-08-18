@@ -138,7 +138,11 @@ class LocalChallengeTest
     /**
      * TXT records at _acme-challenge.{domain} queried from every authoritative NS.
      *
-     * @return array<array{ns: string, ip: string, found: string[]}>
+     * The TTL is the highest one served for the record set, or 0 when the
+     * nameserver returned nothing. It bounds how long a resolver in front of
+     * the CA may keep serving a previous value.
+     *
+     * @return array<array{ns: string, ip: string, found: string[], ttl: int}>
      */
     public static function lookupTxt(string $domain): array
     {
@@ -149,9 +153,15 @@ class LocalChallengeTest
                 $ip        = gethostbyname($ns);
                 $records   = self::getRecords($ns, '_acme-challenge.' . $domain, DNS_TXT);
                 $found     = array_map(fn($r) => $r->txt(), $records);
-                $results[] = ['ns' => $ns, 'ip' => $ip !== $ns ? $ip : 'unresolved', 'found' => $found];
+                $ttls      = array_map(fn($r) => (int) $r->ttl(), $records);
+                $results[] = [
+                    'ns'    => $ns,
+                    'ip'    => $ip !== $ns ? $ip : 'unresolved',
+                    'found' => $found,
+                    'ttl'   => $ttls === [] ? 0 : max($ttls),
+                ];
             } catch (\Throwable) {
-                $results[] = ['ns' => $ns, 'ip' => 'unresolved', 'found' => []];
+                $results[] = ['ns' => $ns, 'ip' => 'unresolved', 'found' => [], 'ttl' => 0];
             }
         }
 

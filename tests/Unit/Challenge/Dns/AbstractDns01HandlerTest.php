@@ -290,7 +290,7 @@ class RecordingLogger extends \Psr\Log\AbstractLogger
 // Serves canned nameserver answers instead of querying real DNS.
 class LookupDns01Handler extends AbstractDns01Handler
 {
-    /** @var array<array{ns: string, ip: string, found: string[]}> */
+    /** @var array<array{ns: string, ip: string, found: string[], ttl: int}> */
     public array $answers = [];
 
     public function deploy(string $domain, string $token, string $keyAuthorization): void {}
@@ -320,14 +320,14 @@ function loggedHandler(array $answers, RecordingLogger $logger): LookupDns01Hand
 it('reports visible when every nameserver serves every expected value', function () {
     $logger  = new RecordingLogger();
     $handler = loggedHandler([
-        ['ns' => 'ns1.example.net', 'ip' => '10.0.0.1', 'found' => ['base', 'wildcard']],
-        ['ns' => 'ns2.example.net', 'ip' => '10.0.0.2', 'found' => ['wildcard', 'base']],
+        ['ns' => 'ns1.example.net', 'ip' => '10.0.0.1', 'found' => ['base', 'wildcard'], 'ttl' => 60],
+        ['ns' => 'ns2.example.net', 'ip' => '10.0.0.2', 'found' => ['wildcard', 'base'], 'ttl' => 60],
     ], $logger);
 
     expect($handler->check('example.com', ['base', 'wildcard']))->toBeTrue();
     expect($logger->lines)->toHaveCount(3);
     expect($logger->lines[0])->toBe(
-        'DNS propagation check: ns1.example.net (10.0.0.1) → _acme-challenge.example.com TXT = "base", "wildcard"',
+        'DNS propagation check: ns1.example.net (10.0.0.1) → _acme-challenge.example.com TXT = "base", "wildcard" (ttl 60s)',
     );
     expect($logger->lines[2])->toBe(
         'All 2 TXT record(s) confirmed on all nameservers: _acme-challenge.example.com',
@@ -337,8 +337,8 @@ it('reports visible when every nameserver serves every expected value', function
 it('reports not visible when a nameserver is missing one of the expected values', function () {
     $logger  = new RecordingLogger();
     $handler = loggedHandler([
-        ['ns' => 'ns1.example.net', 'ip' => '10.0.0.1', 'found' => ['base', 'wildcard']],
-        ['ns' => 'ns2.example.net', 'ip' => '10.0.0.2', 'found' => ['base']],
+        ['ns' => 'ns1.example.net', 'ip' => '10.0.0.1', 'found' => ['base', 'wildcard'], 'ttl' => 60],
+        ['ns' => 'ns2.example.net', 'ip' => '10.0.0.2', 'found' => ['base'], 'ttl' => 60],
     ], $logger);
 
     expect($handler->check('example.com', ['base', 'wildcard']))->toBeFalse();
@@ -349,13 +349,33 @@ it('reports not visible when a nameserver is missing one of the expected values'
 it('logs (none) for a nameserver serving no TXT records', function () {
     $logger  = new RecordingLogger();
     $handler = loggedHandler([
-        ['ns' => 'ns1.example.net', 'ip' => 'unresolved', 'found' => []],
+        ['ns' => 'ns1.example.net', 'ip' => 'unresolved', 'found' => [], 'ttl' => 0],
     ], $logger);
 
     expect($handler->check('example.com', ['base']))->toBeFalse();
     expect($logger->lines[0])->toBe(
         'DNS propagation check: ns1.example.net (unresolved) → _acme-challenge.example.com TXT = (none) (missing 1 of 1)',
     );
+});
+
+it('warns when the record TTL outlives the settle delay', function () {
+    $logger  = new RecordingLogger();
+    $handler = loggedHandler([
+        ['ns' => 'ns1.example.net', 'ip' => '10.0.0.1', 'found' => ['base'], 'ttl' => 86400],
+    ], $logger)->propagationDelay(60);
+
+    expect($handler->check('example.com', ['base']))->toBeTrue();
+    expect($logger->lines[2])->toContain('is served with a TTL of 86400s, longer than the 60s settle delay');
+});
+
+it('does not warn when the record TTL fits inside the settle delay', function () {
+    $logger  = new RecordingLogger();
+    $handler = loggedHandler([
+        ['ns' => 'ns1.example.net', 'ip' => '10.0.0.1', 'found' => ['base'], 'ttl' => 60],
+    ], $logger)->propagationDelay(60);
+
+    expect($handler->check('example.com', ['base']))->toBeTrue();
+    expect($logger->lines)->toHaveCount(2);
 });
 
 it('treats a check with no expected values as visible', function () {

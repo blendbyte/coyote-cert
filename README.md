@@ -330,7 +330,7 @@ If a valid certificate already exists and expiry is more than `--days` away, the
 | `--webroot` | `-w` | | Webroot path for HTTP-01. CoyoteCert writes tokens under `.well-known/acme-challenge/` |
 | `--dns` | | | DNS provider for DNS-01 challenge. See DNS providers table below. Mutually exclusive with `--webroot` |
 | `--dns-propagation-timeout` | | `60` | Seconds to wait for the TXT record to appear in DNS before submitting the challenge to the CA |
-| `--dns-propagation-delay` | | `30` | Settle delay in seconds after the propagation check, letting resolver caches expire before validation |
+| `--dns-propagation-delay` | | `60` | Settle delay in seconds after the propagation check, letting resolver caches expire before validation. Set it to at least the TTL of the `_acme-challenge` record |
 | `--dns-skip-propagation` | | | Skip the post-deploy DNS propagation check entirely (split-horizon or internal DNS) |
 | `--provider` | `-p` | | CA to use. See provider table below. **Required** |
 | `--storage` | `-s` | `./certs` | Directory to read/write certificates and account keys |
@@ -656,7 +656,7 @@ Six built-in DNS-01 handlers, all extending `AbstractDns01Handler`, which runs a
 ```php
 // All return a new immutable instance.
 $handler->propagationTimeout(120)    // seconds to poll for the TXT record (default: 60)
-$handler->propagationDelay(60)       // settle pause after the check, for resolver caches (default: 30)
+$handler->propagationDelay(300)      // settle pause after the check, for resolver caches (default: 60)
 $handler->skipPropagationCheck()     // skip polling entirely (split-horizon / internal DNS)
 $handler->keepExistingRecords()      // do not delete stale _acme-challenge records before deploying
 ```
@@ -1632,6 +1632,23 @@ Check the exact identifier for your CA in the [providers section](#certificate-a
 A previous failed run may have left a stale `_acme-challenge` TXT record alongside the new one. By default, each DNS-01 handler deletes any pre-existing records before deploying, so this is normally cleaned up automatically. If you are on an older version, or the cleanup was skipped because the process was killed mid-run, you can remove the stale record manually through your DNS provider's dashboard.
 
 If you need to keep existing records for a specific reason, use `->keepExistingRecords()` on the handler.
+
+---
+
+### The CA says `Incorrect TXT record "..." found`, and the value it quotes is the one from my previous run.
+
+The CA read a cached answer. Its validators, including the remote perspectives used for secondary validation, resolve through caching recursors, and a resolver that saw your `_acme-challenge` record during an earlier issuance keeps serving that value for the length of the record's TTL. Re-issuing the same name inside that window fails no matter how cleanly the new value propagated to your authoritative nameservers.
+
+Check the TTL your provider gives the record:
+
+```
+dig _acme-challenge.example.com TXT @ns1.your-provider.net
+```
+
+If that TTL is the zone default (often 3600 or 86400), that is the problem. CoyoteCert logs a warning when the TTL it observes is longer than the settle delay. Two fixes, both worth doing:
+
+- Create the challenge record with a short TTL. The built-in handlers already use the lowest value each provider accepts (10 for Route53, 30 for DigitalOcean, 60 elsewhere). A custom handler needs to set this itself, otherwise the record inherits the zone default
+- Raise `$handler->propagationDelay()` to at least that TTL so the cached answer expires before validation starts
 
 ---
 

@@ -200,13 +200,14 @@ class DomainValidation extends Endpoint
             if (!$status->isValid() && $status->identifier['type'] === 'dns') {
                 foreach (LocalChallengeTest::lookupTxt($status->identifier['value']) as $result) {
                     $this->client->logger('debug', sprintf(
-                        'DNS check via %s (%s) → _acme-challenge.%s TXT = %s',
+                        'DNS check via %s (%s) → _acme-challenge.%s TXT = %s%s',
                         $result['ns'],
                         $result['ip'],
                         $status->identifier['value'],
                         empty($result['found'])
                             ? '(none)'
                             : implode(', ', array_map(fn($v) => '"' . $v . '"', $result['found'])),
+                        $result['ttl'] > 0 ? sprintf(' (ttl %ds)', $result['ttl']) : '',
                     ));
                 }
             }

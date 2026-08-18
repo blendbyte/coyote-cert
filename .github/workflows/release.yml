@@ -14,8 +14,22 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # Releases are cut by pushing an annotated tag straight to main, so there are
+      # no merged PRs for generate_release_notes to summarise. Use the tag message
+      # as the release body and let the action append its changelog link below it.
+      - name: Read the tag annotation
+        run: |
+          {
+            echo 'TAG_BODY<<COYOTE_EOF'
+            git tag -l --format='%(contents:body)' "${GITHUB_REF_NAME}"
+            echo COYOTE_EOF
+          } >> "$GITHUB_ENV"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          body: ${{ env.TAG_BODY }}
           generate_release_notes: true

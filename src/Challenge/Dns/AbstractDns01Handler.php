@@ -312,7 +312,7 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
         if ($this->logger !== null) {
             $allVisible = true;
 
-            foreach (LocalChallengeTest::lookupTxt($domain) as $result) {
+            foreach ($this->lookupTxt($domain) as $result) {
                 $missing = array_diff($keyAuthorizations, $result['found']);
                 $this->logger->debug(sprintf(
                     'DNS propagation check: %s (%s) → _acme-challenge.%s TXT = %s%s',
@@ -352,5 +352,19 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
         }
 
         return true;
+    }
+
+    /**
+     * Read the _acme-challenge TXT values currently served by each of the
+     * domain's authoritative nameservers.
+     *
+     * Marked protected so tests can subclass and return canned results
+     * without making real DNS queries.
+     *
+     * @return array<array{ns: string, ip: string, found: string[]}>
+     */
+    protected function lookupTxt(string $domain): array
+    {
+        return LocalChallengeTest::lookupTxt($domain);
     }
 }

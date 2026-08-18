@@ -195,6 +195,22 @@ it('real pollForTxtRecords fails open when the DNS lookup cannot be satisfied', 
     )->not->toThrow(\Throwable::class);
 });
 
+it('real pollForTxtRecords fails open on the logging path too', function () {
+    $handler = new class extends AbstractDns01Handler {
+        public function deploy(string $domain, string $token, string $keyAuth): void
+        {
+            $this->awaitPropagation($domain, $keyAuth);
+        }
+
+        public function cleanup(string $domain, string $token): void {}
+    };
+
+    // Same as above, but with a logger attached, so the real lookupTxt() runs.
+    $handler = $handler->withLogger(new RecordingLogger())->propagationTimeout(1);
+
+    expect(fn() => $handler->deploy('test.invalid', '', 'no-such-record'))->not->toThrow(\Throwable::class);
+});
+
 it('pollForTxtRecords returns immediately when areTxtRecordsVisible returns true', function () {
     $handler = new class extends AbstractDns01Handler {
         public function deploy(string $domain, string $token, string $keyAuth): void
@@ -255,6 +271,103 @@ it('awaitPropagation fails open when poll always fails (timeout reached)', funct
 
     // Should not throw even though pollForTxtRecords always fails
     expect(fn() => $handler->deploy('example.com', 'tok', 'keyauth'))->not->toThrow(\Throwable::class);
+});
+
+// ── Logged visibility check ───────────────────────────────────────────────────
+
+// Collects the debug lines written by areTxtRecordsVisible().
+class RecordingLogger extends \Psr\Log\AbstractLogger
+{
+    /** @var list<string> */
+    public array $lines = [];
+
+    public function log($level, string|\Stringable $message, array $context = []): void
+    {
+        $this->lines[] = (string) $message;
+    }
+}
+
+// Serves canned nameserver answers instead of querying real DNS.
+class LookupDns01Handler extends AbstractDns01Handler
+{
+    /** @var array<array{ns: string, ip: string, found: string[]}> */
+    public array $answers = [];
+
+    public function deploy(string $domain, string $token, string $keyAuthorization): void {}
+
+    public function cleanup(string $domain, string $token): void {}
+
+    /** @param list<string> $keyAuthorizations */
+    public function check(string $domain, array $keyAuthorizations): bool
+    {
+        return $this->areTxtRecordsVisible($domain, $keyAuthorizations);
+    }
+
+    protected function lookupTxt(string $domain): array
+    {
+        return $this->answers;
+    }
+}
+
+function loggedHandler(array $answers, RecordingLogger $logger): LookupDns01Handler
+{
+    $handler          = (new LookupDns01Handler())->withLogger($logger);
+    $handler->answers = $answers;
+
+    return $handler;
+}
+
+it('reports visible when every nameserver serves every expected value', function () {
+    $logger  = new RecordingLogger();
+    $handler = loggedHandler([
+        ['ns' => 'ns1.example.net', 'ip' => '10.0.0.1', 'found' => ['base', 'wildcard']],
+        ['ns' => 'ns2.example.net', 'ip' => '10.0.0.2', 'found' => ['wildcard', 'base']],
+    ], $logger);
+
+    expect($handler->check('example.com', ['base', 'wildcard']))->toBeTrue();
+    expect($logger->lines)->toHaveCount(3);
+    expect($logger->lines[0])->toBe(
+        'DNS propagation check: ns1.example.net (10.0.0.1) → _acme-challenge.example.com TXT = "base", "wildcard"',
+    );
+    expect($logger->lines[2])->toBe(
+        'All 2 TXT record(s) confirmed on all nameservers: _acme-challenge.example.com',
+    );
+});
+
+it('reports not visible when a nameserver is missing one of the expected values', function () {
+    $logger  = new RecordingLogger();
+    $handler = loggedHandler([
+        ['ns' => 'ns1.example.net', 'ip' => '10.0.0.1', 'found' => ['base', 'wildcard']],
+        ['ns' => 'ns2.example.net', 'ip' => '10.0.0.2', 'found' => ['base']],
+    ], $logger);
+
+    expect($handler->check('example.com', ['base', 'wildcard']))->toBeFalse();
+    expect($logger->lines)->toHaveCount(2);
+    expect($logger->lines[1])->toContain('(missing 1 of 2)');
+});
+
+it('logs (none) for a nameserver serving no TXT records', function () {
+    $logger  = new RecordingLogger();
+    $handler = loggedHandler([
+        ['ns' => 'ns1.example.net', 'ip' => 'unresolved', 'found' => []],
+    ], $logger);
+
+    expect($handler->check('example.com', ['base']))->toBeFalse();
+    expect($logger->lines[0])->toBe(
+        'DNS propagation check: ns1.example.net (unresolved) → _acme-challenge.example.com TXT = (none) (missing 1 of 1)',
+    );
+});
+
+it('treats a check with no expected values as visible', function () {
+    expect((new LookupDns01Handler())->check('example.com', []))->toBeTrue();
+});
+
+it('withLogger returns a new immutable instance', function () {
+    $original = new LookupDns01Handler();
+    $logged   = $original->withLogger(new RecordingLogger());
+
+    expect($logged)->not->toBe($original);
+    expect($logged)->toBeInstanceOf(LookupDns01Handler::class);
 });
 
 // ── Deploy batching ───────────────────────────────────────────────────────────

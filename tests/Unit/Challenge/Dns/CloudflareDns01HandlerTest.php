@@ -7,13 +7,13 @@ use CoyoteCert\Exceptions\ChallengeException;
 // Disables the propagation DNS check so tests don't make real DNS queries.
 class MockCloudflareHandler extends CloudflareDns01Handler
 {
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void {}
     protected function deleteExistingRecords(string $domain): void {}
 }
 
 class PurgingCloudflareHandler extends CloudflareDns01Handler
 {
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void {}
 }
 
 /**

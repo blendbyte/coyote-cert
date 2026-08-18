@@ -331,11 +331,20 @@ class CoyoteCert
         $challengeType  = $this->detectChallengeType();
         $validationData = $api->domainValidation()->getValidationData($challenges, $challengeType);
 
+        // Write every TXT record before waiting on DNS. A wildcard and its base name
+        // share one _acme-challenge record set, and publishing the second value only
+        // after the first has propagated leaves a partial set live long enough for the
+        // CA's resolvers to cache it and reject the sibling challenge.
+        $dnsHandler = $challengeHandler instanceof AbstractDns01Handler ? $challengeHandler : null;
+        $dnsHandler?->beginDeployBatch();
+
         foreach ($validationData as $item) {
             [$token, $keyAuth] = $this->extractTokenAndKeyAuth($item);
             $api->logger('info', sprintf('Deploy %s challenge for %s', $challengeType->value, $item->identifier));
             $challengeHandler->deploy($item->identifier, $token, $keyAuth);
         }
+
+        $dnsHandler?->awaitDeployedRecords();
 
         foreach ($challenges as $domainValidation) {
             if ($domainValidation->isValid()) {

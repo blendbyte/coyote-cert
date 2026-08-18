@@ -64,7 +64,7 @@ class HetznerDns01Handler extends AbstractDns01Handler
             'name'    => $this->relativeRecordName($domain, $zone['name']),
             'value'   => $keyAuthorization,
             'zone_id' => $zone['id'],
-            'ttl'     => 60,
+            'ttl'     => 60, // Lowest TTL the Hetzner DNS API accepts.
         ]);
 
         if (empty($response['record']['id'])) {

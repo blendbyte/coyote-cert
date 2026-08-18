@@ -16,11 +16,13 @@ use Psr\Log\LoggerInterface;
  * _acme-challenge.{domain} with $keyAuthorization as the value; remove it in
  * cleanup().
  *
- * After deploy(), call awaitPropagation($domain, $keyAuthorization) to wait
- * until the record is visible on the domain's authoritative nameservers before
- * returning — this is the same check the ACME server performs, so it eliminates
- * premature challenge submission. The check is enabled by default and can be
- * disabled with skipPropagationCheck().
+ * After deploy(), call awaitPropagation($domain, $keyAuthorization) to register
+ * the value and wait until it is visible on the domain's authoritative
+ * nameservers. When CoyoteCert drives the handler, that wait is deferred until
+ * every record of the order has been written, so a wildcard and its base name
+ * never leave a half-complete TXT record set published while the CA (or any
+ * resolver in front of it) is free to cache it. The check is enabled by default
+ * and can be disabled with skipPropagationCheck().
  *
  * Example:
  *
@@ -44,20 +46,26 @@ use Psr\Log\LoggerInterface;
  *   // Extend the poll window:
  *   $handler = new MyDns01Handler()->propagationTimeout(120);
  *
- *   // Add a fixed sleep on top of (or instead of) the DNS check:
- *   $handler = new MyDns01Handler()->propagationDelay(10);
+ *   // Change the settle delay applied after the records are confirmed:
+ *   $handler = new MyDns01Handler()->propagationDelay(60);
  */
 abstract class AbstractDns01Handler implements ChallengeHandlerInterface
 {
     private bool             $propagationCheck        = true;
     private int              $propagationTimeout      = 60;
     private int              $propagationPollInterval = 5;
-    private int              $propagationDelaySecs    = 0;
+    private int              $propagationDelaySecs    = 30;
     private bool             $purgeExistingOnDeploy   = true;
     private ?LoggerInterface $logger                  = null;
 
     /** @var array<string, true> Tracks domains already purged this handler instance to avoid wiping sibling challenges (e.g. wildcard + base). */
     private array $purgeDone = [];
+
+    /** @var array<string, list<string>> domain => TXT values deployed but not yet confirmed on the nameservers. */
+    private array $pending = [];
+
+    /** True while a deploy batch is open; propagation is then confirmed once, after the last record is written. */
+    private bool $batching = false;
 
     final public function supports(AuthorizationChallengeEnum $type): bool
     {
@@ -91,8 +99,14 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
     }
 
     /**
-     * Add a fixed sleep after the propagation check (or instead of it when
-     * the check is disabled). Useful for providers with delayed secondary sync.
+     * Set the settle delay applied once the records are confirmed on the
+     * authoritative nameservers (or instead of the check when it is disabled).
+     * Defaults to 30 seconds.
+     *
+     * Authoritative visibility is not resolver visibility: the CA validates
+     * through caching recursors and anycast secondaries that may still hold the
+     * pre-update answer for up to the record TTL. Waiting here lets those
+     * expire. Pass 0 to disable.
      */
     public function propagationDelay(int $seconds): static
     {
@@ -197,18 +211,60 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
     }
 
     /**
-     * Wait for the _acme-challenge TXT record to appear on the domain's
-     * authoritative nameservers, then apply any configured fixed delay.
+     * Open a deploy batch: awaitPropagation() only registers the deployed value
+     * and returns, so every record of the order is written before any DNS check
+     * runs. Closed by awaitDeployedRecords(). Called by CoyoteCert around the
+     * deploy loop.
+     */
+    final public function beginDeployBatch(): void
+    {
+        $this->batching = true;
+        $this->pending  = [];
+    }
+
+    /**
+     * Close the deploy batch: wait until every deployed value is visible on the
+     * authoritative nameservers, then apply the settle delay once.
+     */
+    final public function awaitDeployedRecords(): void
+    {
+        $this->batching = false;
+        $this->confirmPending();
+    }
+
+    /**
+     * Register the deployed TXT value and wait for it to become visible on the
+     * domain's authoritative nameservers, then apply the settle delay.
      *
-     * Call this at the end of deploy() after the API call succeeds.
-     * Fails open on timeout or DNS resolution errors — the ACME server
+     * Call this at the end of deploy() after the API call succeeds. Inside a
+     * deploy batch the wait is deferred to awaitDeployedRecords() so sibling
+     * challenges sharing one _acme-challenge name are confirmed together.
+     *
+     * Fails open on timeout or DNS resolution errors: the ACME server
      * determines the final validation outcome.
      */
     protected function awaitPropagation(string $domain, string $keyAuthorization): void
     {
-        if ($this->propagationCheck) {
-            $this->pollForTxtRecord($domain, $keyAuthorization);
+        $this->pending[$domain][] = $keyAuthorization;
+
+        if (!$this->batching) {
+            $this->confirmPending();
         }
+    }
+
+    private function confirmPending(): void
+    {
+        if ($this->pending === []) {
+            return;
+        }
+
+        if ($this->propagationCheck) {
+            foreach ($this->pending as $domain => $keyAuthorizations) {
+                $this->pollForTxtRecords($domain, $keyAuthorizations);
+            }
+        }
+
+        $this->pending = [];
 
         if ($this->propagationDelaySecs > 0) {
             sleep($this->propagationDelaySecs);
@@ -216,18 +272,20 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
     }
 
     /**
-     * Poll the domain's authoritative nameservers until the _acme-challenge
-     * TXT record appears with the expected value, or the timeout is reached.
+     * Poll the domain's authoritative nameservers until every expected
+     * _acme-challenge TXT value is present, or the timeout is reached.
      *
      * Marked protected so tests can subclass and inject instant responses
      * without making real DNS queries.
+     *
+     * @param list<string> $keyAuthorizations
      */
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void
     {
         $deadline = time() + $this->propagationTimeout;
 
         do {
-            if ($this->isTxtRecordVisible($domain, $keyAuthorization)) {
+            if ($this->areTxtRecordsVisible($domain, $keyAuthorizations)) {
                 return;
             }
 
@@ -240,46 +298,59 @@ abstract class AbstractDns01Handler implements ChallengeHandlerInterface
     }
 
     /**
-     * Perform a single DNS TXT record visibility check.
+     * Perform a single DNS visibility check: every expected value must be
+     * present on every authoritative nameserver. A partial record set means the
+     * CA can still read a stale answer, so it does not count as propagated.
      *
      * Marked protected so tests can subclass and return a controlled result
      * without making real DNS queries.
+     *
+     * @param list<string> $keyAuthorizations
      */
-    protected function isTxtRecordVisible(string $domain, string $keyAuthorization): bool
+    protected function areTxtRecordsVisible(string $domain, array $keyAuthorizations): bool
     {
         if ($this->logger !== null) {
             $allVisible = true;
 
             foreach (LocalChallengeTest::lookupTxt($domain) as $result) {
-                $hasValue = in_array($keyAuthorization, $result['found'], true);
+                $missing = array_diff($keyAuthorizations, $result['found']);
                 $this->logger->debug(sprintf(
-                    'DNS propagation check: %s (%s) → _acme-challenge.%s TXT = %s',
+                    'DNS propagation check: %s (%s) → _acme-challenge.%s TXT = %s%s',
                     $result['ns'],
                     $result['ip'],
                     $domain,
                     empty($result['found'])
                         ? '(none)'
                         : implode(', ', array_map(fn($v) => '"' . $v . '"', $result['found'])),
+                    $missing === []
+                        ? ''
+                        : sprintf(' (missing %d of %d)', count($missing), count($keyAuthorizations)),
                 ));
 
-                if (!$hasValue) {
+                if ($missing !== []) {
                     $allVisible = false;
                 }
             }
 
             if ($allVisible) {
-                $this->logger->debug(sprintf('TXT record confirmed on all nameservers: _acme-challenge.%s', $domain));
+                $this->logger->debug(sprintf(
+                    'All %d TXT record(s) confirmed on all nameservers: _acme-challenge.%s',
+                    count($keyAuthorizations),
+                    $domain,
+                ));
             }
 
             return $allVisible;
         }
 
-        try {
-            LocalChallengeTest::dns($domain, '_acme-challenge', $keyAuthorization);
-
-            return true;
-        } catch (DomainValidationException) {
-            return false;
+        foreach ($keyAuthorizations as $keyAuthorization) {
+            try {
+                LocalChallengeTest::dns($domain, '_acme-challenge', $keyAuthorization);
+            } catch (DomainValidationException) {
+                return false;
+            }
         }
+
+        return true;
     }
 }

@@ -57,7 +57,7 @@ class CloudflareDns01Handler extends AbstractDns01Handler
             'type'    => 'TXT',
             'name'    => $this->challengeName($domain),
             'content' => $keyAuthorization,
-            'ttl'     => 60,
+            'ttl'     => 60, // Cloudflare's minimum outside Enterprise plans.
         ]);
 
         if (empty($response['result']['id'])) {

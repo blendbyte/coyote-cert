@@ -6,13 +6,13 @@ use CoyoteCert\Exceptions\ChallengeException;
 
 class MockClouDnsHandler extends ClouDnsDns01Handler
 {
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void {}
     protected function deleteExistingRecords(string $domain): void {}
 }
 
 class PurgingClouDnsHandler extends ClouDnsDns01Handler
 {
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void {}
 }
 
 /**

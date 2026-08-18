@@ -59,7 +59,7 @@ class DigitalOceanDns01Handler extends AbstractDns01Handler
             'type' => 'TXT',
             'name' => $this->relativeRecordName($domain, $zone),
             'data' => $keyAuthorization,
-            'ttl'  => 30,
+            'ttl'  => 30, // Lowest TTL DigitalOcean accepts.
         ]);
 
         if (empty($response['domain_record']['id'])) {

@@ -330,7 +330,7 @@ If a valid certificate already exists and expiry is more than `--days` away, the
 | `--webroot` | `-w` | | Webroot path for HTTP-01. CoyoteCert writes tokens under `.well-known/acme-challenge/` |
 | `--dns` | | | DNS provider for DNS-01 challenge. See DNS providers table below. Mutually exclusive with `--webroot` |
 | `--dns-propagation-timeout` | | `60` | Seconds to wait for the TXT record to appear in DNS before submitting the challenge to the CA |
-| `--dns-propagation-delay` | | `0` | Fixed delay in seconds after the propagation check, for providers with slow secondary sync |
+| `--dns-propagation-delay` | | `30` | Settle delay in seconds after the propagation check, letting resolver caches expire before validation |
 | `--dns-skip-propagation` | | | Skip the post-deploy DNS propagation check entirely (split-horizon or internal DNS) |
 | `--provider` | `-p` | | CA to use. See provider table below. **Required** |
 | `--storage` | `-s` | `./certs` | Directory to read/write certificates and account keys |
@@ -651,12 +651,12 @@ class MyTlsAlpn01Handler extends TlsAlpn01Handler
 
 ## DNS-01 providers
 
-Six built-in DNS-01 handlers, all extending `AbstractDns01Handler`, which runs a post-deploy propagation check by default. Four fluent controls tune the behaviour:
+Six built-in DNS-01 handlers, all extending `AbstractDns01Handler`, which runs a post-deploy propagation check by default. Every TXT record of an order is written before the check runs, so a wildcard and its base name (which share one `_acme-challenge` name) are never published as a half-complete record set, and the check requires all of that name's values on every authoritative nameserver. A settle delay then lets caching resolvers in front of the CA drop the pre-update answer. Four fluent controls tune the behaviour:
 
 ```php
 // All return a new immutable instance.
 $handler->propagationTimeout(120)    // seconds to poll for the TXT record (default: 60)
-$handler->propagationDelay(10)       // fixed pause after the check, for slow secondaries (default: 0)
+$handler->propagationDelay(60)       // settle pause after the check, for resolver caches (default: 30)
 $handler->skipPropagationCheck()     // skip polling entirely (split-horizon / internal DNS)
 $handler->keepExistingRecords()      // do not delete stale _acme-challenge records before deploying
 ```
@@ -1642,7 +1642,7 @@ Your DNS tool is probably querying a resolver. CoyoteCert queries the authoritat
 Three ways out:
 
 - `$handler->propagationTimeout(120)` to wait longer before giving up
-- `$handler->propagationDelay(15)` to add a fixed pause after the check passes
+- `$handler->propagationDelay(60)` to lengthen the settle pause after the check passes
 - `$handler->skipPropagationCheck()` if you are confident the record will be there by the time the CA arrives
 
 ---

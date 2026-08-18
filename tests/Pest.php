@@ -22,7 +22,7 @@ namespace CoyoteCert\Endpoints {
 }
 
 // ── Override sleep() / time() / curl_* in Challenge\Dns namespace ─────────────
-// pollForTxtRecord() and awaitPropagation() call sleep() and time() without a
+// pollForTxtRecords() and awaitPropagation() call sleep() and time() without a
 // backslash prefix, so PHP resolves them in this namespace first.
 //
 // sleep() is a no-op in unit tests; it also advances $GLOBALS['__test_time']

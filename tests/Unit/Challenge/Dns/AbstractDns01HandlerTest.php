@@ -9,14 +9,14 @@ afterEach(function () {
 });
 
 // Concrete subclass for testing the abstract base.
-// Overrides pollForTxtRecord() so tests never make real DNS queries.
+// Overrides pollForTxtRecords() so tests never make real DNS queries.
 class TestDns01Handler extends AbstractDns01Handler
 {
     public array $deployed  = [];
     public array $cleaned   = [];
     public int   $pollCalls = 0;
 
-    /** When set, pollForTxtRecord() throws DomainValidationException on every call. */
+    /** When set, pollForTxtRecords() throws DomainValidationException on every call. */
     public bool $pollAlwaysFails = false;
 
     public function deploy(string $domain, string $token, string $keyAuthorization): void
@@ -30,9 +30,13 @@ class TestDns01Handler extends AbstractDns01Handler
         $this->cleaned[] = compact('domain', 'token');
     }
 
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void
+    /** @var list<array{domain: string, values: list<string>}> */
+    public array $polled = [];
+
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void
     {
         $this->pollCalls++;
+        $this->polled[] = ['domain' => $domain, 'values' => $keyAuthorizations];
 
         if ($this->pollAlwaysFails) {
             throw DomainValidationException::localDnsChallengeTestFailed($domain);
@@ -173,7 +177,7 @@ it('propagationDelay executes the sleep branch when the delay is positive', func
     expect($handler->deployed)->toHaveCount(1);
 });
 
-it('real pollForTxtRecord fails open when the DNS lookup cannot be satisfied', function () {
+it('real pollForTxtRecords fails open when the DNS lookup cannot be satisfied', function () {
     $handler = new class extends AbstractDns01Handler {
         public function deploy(string $domain, string $token, string $keyAuth): void
         {
@@ -183,7 +187,7 @@ it('real pollForTxtRecord fails open when the DNS lookup cannot be satisfied', f
         public function cleanup(string $domain, string $token): void {}
     };
 
-    // Does not override pollForTxtRecord() — exercises the real implementation.
+    // Does not override pollForTxtRecords() — exercises the real implementation.
     // DNS fails for .invalid; propagationTimeout(1) keeps the poll window short.
     // Fails open: no exception is thrown when the timeout is reached.
     expect(
@@ -191,7 +195,7 @@ it('real pollForTxtRecord fails open when the DNS lookup cannot be satisfied', f
     )->not->toThrow(\Throwable::class);
 });
 
-it('pollForTxtRecord returns immediately when isTxtRecordVisible returns true', function () {
+it('pollForTxtRecords returns immediately when areTxtRecordsVisible returns true', function () {
     $handler = new class extends AbstractDns01Handler {
         public function deploy(string $domain, string $token, string $keyAuth): void
         {
@@ -200,7 +204,7 @@ it('pollForTxtRecord returns immediately when isTxtRecordVisible returns true', 
 
         public function cleanup(string $domain, string $token): void {}
 
-        protected function isTxtRecordVisible(string $domain, string $keyAuthorization): bool
+        protected function areTxtRecordsVisible(string $domain, array $keyAuthorizations): bool
         {
             return true;
         }
@@ -209,7 +213,7 @@ it('pollForTxtRecord returns immediately when isTxtRecordVisible returns true', 
     expect(fn() => $handler->deploy('example.com', '', 'keyauth'))->not->toThrow(\Throwable::class);
 });
 
-it('pollForTxtRecord sleeps between poll attempts when the deadline has not passed', function () {
+it('pollForTxtRecords sleeps between poll attempts when the deadline has not passed', function () {
     // Freeze fake time so the deadline check is deterministic regardless of real DNS speed.
     // sleep() in this namespace advances __test_time, so after sleep(5) the fake clock
     // reads start+5, which is past the start+1 deadline — loop exits after one sleep call.
@@ -231,14 +235,14 @@ it('pollForTxtRecord sleeps between poll attempts when the deadline has not pass
 
 // ── DNS propagation check ─────────────────────────────────────────────────────
 
-it('pollForTxtRecord is called by default after deploy', function () {
+it('pollForTxtRecords is called by default after deploy', function () {
     $handler = new TestDns01Handler();
     $handler->deploy('example.com', 'tok', 'keyauth');
 
     expect($handler->pollCalls)->toBe(1);
 });
 
-it('skipPropagationCheck prevents pollForTxtRecord from being called', function () {
+it('skipPropagationCheck prevents pollForTxtRecords from being called', function () {
     $handler = (new TestDns01Handler())->skipPropagationCheck();
     $handler->deploy('example.com', 'tok', 'keyauth');
 
@@ -249,8 +253,84 @@ it('awaitPropagation fails open when poll always fails (timeout reached)', funct
     $handler                  = new TestDns01Handler();
     $handler->pollAlwaysFails = true;
 
-    // Should not throw even though pollForTxtRecord always fails
+    // Should not throw even though pollForTxtRecords always fails
     expect(fn() => $handler->deploy('example.com', 'tok', 'keyauth'))->not->toThrow(\Throwable::class);
+});
+
+// ── Deploy batching ───────────────────────────────────────────────────────────
+
+it('defers the propagation check until the deploy batch is closed', function () {
+    $handler = new TestDns01Handler();
+    $handler->beginDeployBatch();
+
+    $handler->deploy('example.com', 'tok', 'keyauth-base');
+    $handler->deploy('example.com', 'tok', 'keyauth-wildcard');
+
+    expect($handler->pollCalls)->toBe(0);
+
+    $handler->awaitDeployedRecords();
+
+    expect($handler->pollCalls)->toBe(1);
+});
+
+it('checks every value deployed for a shared challenge name in one poll', function () {
+    $handler = new TestDns01Handler();
+    $handler->beginDeployBatch();
+    $handler->deploy('example.com', 'tok', 'keyauth-base');
+    $handler->deploy('example.com', 'tok', 'keyauth-wildcard');
+    $handler->awaitDeployedRecords();
+
+    expect($handler->polled)->toBe([
+        ['domain' => 'example.com', 'values' => ['keyauth-base', 'keyauth-wildcard']],
+    ]);
+});
+
+it('polls each domain separately within a batch', function () {
+    $handler = new TestDns01Handler();
+    $handler->beginDeployBatch();
+    $handler->deploy('example.com', 'tok', 'keyauth-one');
+    $handler->deploy('example.org', 'tok', 'keyauth-two');
+    $handler->awaitDeployedRecords();
+
+    expect($handler->pollCalls)->toBe(2);
+    expect($handler->polled)->toBe([
+        ['domain' => 'example.com', 'values' => ['keyauth-one']],
+        ['domain' => 'example.org', 'values' => ['keyauth-two']],
+    ]);
+});
+
+it('closing an empty batch does nothing', function () {
+    $handler = new TestDns01Handler();
+    $handler->beginDeployBatch();
+    $handler->awaitDeployedRecords();
+
+    expect($handler->pollCalls)->toBe(0);
+});
+
+it('deploying outside a batch still checks immediately', function () {
+    $handler = new TestDns01Handler();
+    $handler->deploy('example.com', 'tok', 'keyauth-base');
+    $handler->deploy('example.com', 'tok', 'keyauth-wildcard');
+
+    expect($handler->pollCalls)->toBe(2);
+    expect($handler->polled)->toBe([
+        ['domain' => 'example.com', 'values' => ['keyauth-base']],
+        ['domain' => 'example.com', 'values' => ['keyauth-wildcard']],
+    ]);
+});
+
+it('reopening a batch clears values left by the previous one', function () {
+    $handler = new TestDns01Handler();
+    $handler->beginDeployBatch();
+    $handler->deploy('example.com', 'tok', 'keyauth-stale');
+
+    $handler->beginDeployBatch();
+    $handler->deploy('example.com', 'tok', 'keyauth-fresh');
+    $handler->awaitDeployedRecords();
+
+    expect($handler->polled)->toBe([
+        ['domain' => 'example.com', 'values' => ['keyauth-fresh']],
+    ]);
 });
 
 // ── deploy / cleanup arguments ────────────────────────────────────────────────

@@ -35,7 +35,7 @@ class TestableRoute53Handler extends Route53Dns01Handler
         return $response;
     }
 
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void {}
 }
 
 /**
@@ -44,7 +44,7 @@ class TestableRoute53Handler extends Route53Dns01Handler
  */
 class Route53HandlerWithRealSend extends Route53Dns01Handler
 {
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void {}
 }
 
 afterEach(function () {
@@ -142,13 +142,13 @@ it('deploy XML body wraps the TXT value in double quotes', function () {
     expect($handler->captured[0]['body'])->toContain('<Value>&quot;my-key-auth&quot;</Value>');
 });
 
-it('deploy XML body sets record type to TXT with TTL 60', function () {
+it('deploy XML body sets record type to TXT with TTL 10', function () {
     $handler = new TestableRoute53Handler('ZTEST123', [r53ChangeOkXml()]);
 
     $handler->deploy('example.com', '', 'keyauth');
 
     expect($handler->captured[0]['body'])->toContain('<Type>TXT</Type>');
-    expect($handler->captured[0]['body'])->toContain('<TTL>60</TTL>');
+    expect($handler->captured[0]['body'])->toContain('<TTL>10</TTL>');
 });
 
 // ── deploy() with zone auto-detection ─────────────────────────────────────────

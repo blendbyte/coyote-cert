@@ -155,7 +155,8 @@ class Route53Dns01Handler extends AbstractDns01Handler
             . '<ChangeResourceRecordSetsRequest xmlns="https://route53.amazonaws.com/doc/%s/">'
             . '<ChangeBatch><Changes><Change>'
             . '<Action>%s</Action>'
-            . '<ResourceRecordSet><Name>%s</Name><Type>TXT</Type><TTL>60</TTL>'
+            // Route53 has no TTL floor; a short one keeps the challenge set out of resolver caches.
+            . '<ResourceRecordSet><Name>%s</Name><Type>TXT</Type><TTL>10</TTL>'
             . '<ResourceRecords>%s</ResourceRecords>'
             . '</ResourceRecordSet>'
             . '</Change></Changes></ChangeBatch>'

@@ -5,7 +5,7 @@ use CoyoteCert\Exceptions\ChallengeException;
 
 /**
  * Captures run() calls without executing a real process.
- * Overrides pollForTxtRecord() so awaitPropagation() is a no-op.
+ * Overrides pollForTxtRecords() so awaitPropagation() is a no-op.
  */
 class MockShellHandler extends ShellDns01Handler
 {
@@ -17,7 +17,7 @@ class MockShellHandler extends ShellDns01Handler
         $this->calls[] = compact('cmdTemplate', 'domain', 'keyAuth');
     }
 
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void {}
 }
 
 /**
@@ -25,7 +25,7 @@ class MockShellHandler extends ShellDns01Handler
  */
 class ShellHandlerWithRealRun extends ShellDns01Handler
 {
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void {}
 }
 
 // ── deploy() routing ──────────────────────────────────────────────────────────

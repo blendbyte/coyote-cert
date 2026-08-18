@@ -71,7 +71,7 @@ class ClouDnsDns01Handler extends AbstractDns01Handler
             'record-type' => 'TXT',
             'host'        => $host,
             'record'      => $keyAuthorization,
-            'ttl'         => 60,
+            'ttl'         => 60, // Lowest TTL ClouDNS accepts.
         ]);
 
         if (($response['status'] ?? '') !== 'Success') {

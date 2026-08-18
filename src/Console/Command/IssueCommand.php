@@ -31,7 +31,7 @@ class IssueCommand extends Command
             ->addOption('webroot', 'w', InputOption::VALUE_REQUIRED, 'Webroot path for HTTP-01 challenge (.well-known/acme-challenge will be written here)')
             ->addOption('dns', null, InputOption::VALUE_REQUIRED, 'DNS provider for DNS-01 challenge: cloudflare, hetzner, digitalocean, cloudns, route53, exec')
             ->addOption('dns-propagation-timeout', null, InputOption::VALUE_REQUIRED, 'Seconds to wait for DNS propagation before submitting the challenge (default: 60)')
-            ->addOption('dns-propagation-delay', null, InputOption::VALUE_REQUIRED, 'Fixed delay in seconds after the propagation check, for providers with slow secondary sync (default: 0)')
+            ->addOption('dns-propagation-delay', null, InputOption::VALUE_REQUIRED, 'Settle delay in seconds after the propagation check, letting resolver caches expire before validation (default: 30)')
             ->addOption('dns-skip-propagation', null, InputOption::VALUE_NONE, 'Skip the post-deploy DNS propagation check (use for split-horizon or internal DNS)')
             ->addOption('provider', 'p', InputOption::VALUE_REQUIRED, 'CA to use: letsencrypt, letsencrypt-staging, zerossl, google, buypass, buypass-staging, sslcom')
             ->addOption('storage', 's', InputOption::VALUE_REQUIRED, 'Directory to store certificates and account keys', './certs')

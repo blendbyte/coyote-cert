@@ -6,13 +6,13 @@ use CoyoteCert\Exceptions\ChallengeException;
 
 class MockHetznerHandler extends HetznerDns01Handler
 {
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void {}
     protected function deleteExistingRecords(string $domain): void {}
 }
 
 class PurgingHetznerHandler extends HetznerDns01Handler
 {
-    protected function pollForTxtRecord(string $domain, string $keyAuthorization): void {}
+    protected function pollForTxtRecords(string $domain, array $keyAuthorizations): void {}
 }
 
 /**

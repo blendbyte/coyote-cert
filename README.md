@@ -1327,6 +1327,8 @@ $storage->deleteCertificate('example.com', KeyType::EC_P256);
 
 ## Security
 
+Report vulnerabilities privately — see [`SECURITY.md`](SECURITY.md). Do not open a public issue.
+
 - **Account keys are sensitive:** back them up, never commit them to git. Treat them like passwords.
 - **If the account key is lost,** you can re-register with the CA, but you lose ARI renewal history and any CA-side account associations.
 - **Filesystem storage** writes keys at `0600` and the storage directory at `0700`. PEM certificate files are `0644` and are safe to serve publicly.
